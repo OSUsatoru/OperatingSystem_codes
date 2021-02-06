@@ -86,7 +86,7 @@ struct movies{
 *****************************************/
 int main(int argc, char *argv[])
 {
-    if (argc != 2){
+    if (argc < 2){
         printf("You must provide the name of the file to process\n");
         printf("Example usage: ./movies movies_sample_1.csv\n");
         return EXIT_FAILURE;

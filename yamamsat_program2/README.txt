@@ -3,6 +3,6 @@ How to compile your code using gcc to create an executable file that must be nam
 gcc --std=gnu99 -o movies_by_year main.c
 
 
-Example of run program commands by using movies_sample_1.csv
+Example of run program commands
 
 ./movies_by_year

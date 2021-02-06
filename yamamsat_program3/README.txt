@@ -3,6 +3,11 @@ How to compile your code using gcc to create an executable file that must be nam
 gcc --std=gnu99 -o smallsh main.c
 
 
-Example of run program commands by using movies_sample_1.csv
+Example of run program commands
 
-./smallsh
+(display stdout and stderr on window)
+./p3testscript 2>&1
+
+(stdour in mytestresults, stderr on window(stdout))
+
+./p3testscript > mytestresults 2>&1

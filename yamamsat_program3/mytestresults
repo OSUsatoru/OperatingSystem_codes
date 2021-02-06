@@ -1,20 +1,14 @@
 test code
 calculator
-1 2 0
- is 6
-1 2 0 is 5
-3 4 0
- is 6
-3 4 0 is 5
+num: 3
+120
+num: 3
+340
+num: 0
 
- is 1
- is 0
-5 6 0
- is 6
-5 6 0 is 5
-7 8 1
- is 6
-7 8 1 is 5
+num: 3
+560
+num: 3
+781
+num: 1
 exit
- is 5
-exit is 4

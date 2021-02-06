@@ -2,6 +2,7 @@
     "files.associations": {
         "*.ipp": "c",
         "sstream": "c",
-        "regex": "c"
+        "regex": "c",
+        "string_view": "c"
     }
 }

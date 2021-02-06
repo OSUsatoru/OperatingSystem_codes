@@ -15,6 +15,8 @@
 **********************************************************************************************/
 /*
     no need to use getline
+    user fgets, not scanf (need to store data line by line)
+    have to delete the last charactor
     Todo:
         user input will be stored in struct
         1.skip space or "#"
@@ -32,19 +34,33 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-const int max_charactor = 2048;
+/*
+    fgets automatically stores '\n' at the end of string.
+    the end of buffer, stores '\0'
+    +1 for '\n'
+*/
+const int max_charactor = 2049;
 const int max_arg = 512;
 
 
 /*./testscript > mytestresults 2>&1*/
 int main(void) {
 
-    int x,y,n = 0;
-    do{
-        scanf("%d%d%d", &x,&y,&n);
-        printf("result %d\n", (x+y));
+    char buffer[max_charactor];
 
-        }while(n==0);
+    /*test for input data*/
+    while(fgets(buffer, max_charactor-1, stdin)){
+        printf("%s is %d\n",buffer, strlen(buffer));
+        if (strlen(buffer) > 0 && buffer[strlen(buffer) - 1] == '\n') {
+            buffer[strlen(buffer)-1] = '\0';
+            }
+
+
+        printf("%s is %d\n",buffer, strlen(buffer));
+    }
+
+
+
 
     return 0;
 }

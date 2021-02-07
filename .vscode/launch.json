@@ -9,11 +9,11 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${fileDirname}\\${fileBasenameNoExtension}.exe",
-            "args": ["movies_sample_1.csv"],
+            "args": [],
             "stopAtEntry": true,
             "cwd": "C:\\MinGW\\bin",
             "environment": [],
-            "console": "externalTerminal",
+            "externalConsole": true,
             "MIMode": "gdb",
             "miDebuggerPath": "C:\\MinGW\\bin\\gdb.exe",
             "setupCommands": [

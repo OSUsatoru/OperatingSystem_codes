@@ -9,6 +9,8 @@
 
     - for some information
     cs344 Explorations
+    - for replacing charactor
+    https://programming-place.net/ppp/contents/c/rev_res/string014.html
 
 
 
@@ -46,29 +48,63 @@
 /*
     fgets automatically stores '\n' at the end of string.
     the end of buffer, stores '\0'
-    +1 for '\n'
+    +1 for max_charactor
 */
 const int max_charactor = 2049;
-const int max_arg = 512;
+/*
+    because the exec function's argu has to end with NULL
+    +1 for max_arg
+*/
+const int max_arg = 513;
+
+struct arst{
+    int num_arg;
+    _Bool backgroundCommand;
+    char *InputFile;
+    char *OutputFile;
+};
 
 
-void process_input(char *input_args[], int *num_args);
-void process_arguments(char *input_argus[]);
+void input_argument(char *input_args[], struct arst *arg_status);
+int process_arguments(char *input_argus[]);
+
+/*
+    There variable are chenged by each input
+************************************************************/
+
 
 /*./testscript > mytestresults 2>&1*/
 int main(void) {
 
     /*store all arguments in line*/
     char *input_args[max_arg];
-    int num_args;
-    /*test for input data*/
+    int isContinue = 1;
+
+
     do{
-        process_input(input_args, &num_args);
-        printf("num: %d\n", num_args);
+        //printf("check: %d", arg_status->check);
+        struct arst arg_status = {0};
+
+        //arg_status->check = 1;
+        input_argument(input_args, &arg_status);
+        //printf("num: %d\n", num_args);
+
+        /*check if the argument is comment*/
+        if(input_args[0][0] != 35 && arg_status.num_arg!= 0){
+            isContinue = process_arguments(input_args);
+        }
+
+        /*
         for(int i = 0; i < num_args; ++i)
             printf("%s", input_args[i]);
         printf("\n");
-    }while(strcmp(input_args[0], "exit") != 0);
+        */
+
+        /* reset the argument array*/
+        for(int i = 0; i < arg_status.num_arg; ++i){
+            input_args[i] = NULL;
+        }
+    }while(isContinue);
 
 
 
@@ -79,17 +115,22 @@ int main(void) {
     This receive input line by line and store each argument
     React to:
         1. "#" comment (no need)
+
         2. "&&" replace to pid
-        3. ">" input file true -> dup2, 0
+        3. "<" input file true -> dup2, 0
         4. ">", output file true -> dup2, 1
 
     1. return arguments
-    2. return number of arguments
+    2. return arg_status
 
 **********************************************************************/
-void process_input(char *input_args[], int *num_args)
+void input_argument(char *input_args[],  struct arst *arg_status)
 {
     char buffer[max_charactor];
+    /* Display ": " when store argument
+    printf(": ");
+    fflush(stdout);
+    */
 
     /* to store input*/
     fgets(buffer, max_charactor-1, stdin);
@@ -99,6 +140,16 @@ void process_input(char *input_args[], int *num_args)
         buffer[strlen(buffer)-1] = '\0';
     }
 
+    /* if the input is blank*/
+    if(!strcmp(buffer, "")){
+        input_args[0] = "";
+        arg_status->num_arg = 0;
+        return;
+    }
+
+
+
+
     /* split string data into input_args*/
     int cnt = 0;
     /* for strtok_r*/
@@ -106,22 +157,81 @@ void process_input(char *input_args[], int *num_args)
     /* store title info */
     char *token = strtok_r(buffer, " ", &saveptr);
 
+    /* check if there is: ">" "<" */
     while(token != NULL){
-        input_args[cnt] = calloc(strlen(token)+1, sizeof(char));
-        strcpy(input_args[cnt], token);
-        ++cnt;
+
+
+        char *cpy_token = calloc(strlen(token)+1, sizeof(char));
+        strcpy(cpy_token, token);
+        char pid[] = "123";
+        char *tmp = cpy_token;
+        char tmp_buffer[max_charactor];
+        /*
+            if there is "$$", replace that to PID
+        */
+        while((tmp = strstr(tmp, "$$")) != NULL){
+            /* tmp2 is pointing after "$$" */
+            const char *tmp2 = tmp + 2;
+            memmove(tmp + strlen(pid), tmp2, strlen(tmp2)+1);
+            memcpy(tmp, pid, strlen(pid));
+            tmp+=strlen(pid);
+        }
+
+
+        input_args[cnt] = calloc(strlen(cpy_token)+1, sizeof(char));
+        /*
+            if token == ">" or "<", store next file name into struct arst. (do not store into input_args)
+            if token == "&", arst->backgroundCommand = 1. (do not store into input_args)
+            if token has the
+        */
+        if(!strcmp(cpy_token,"<")){
+            /* move to next argument to store file name*/
+            cpy_token = strtok_r(NULL, " ", &saveptr);
+
+            /* dinamic allocate memory for title */
+            arg_status->InputFile = calloc(strlen(cpy_token)+1, sizeof(char));
+            strcpy(arg_status->InputFile, cpy_token);
+
+        }else if(!strcmp(cpy_token,">")){
+            /* move to next argument to store file name*/
+            cpy_token = strtok_r(NULL, " ", &saveptr);
+
+            /* dinamic allocate memory for title */
+            arg_status->OutputFile = calloc(strlen(cpy_token)+1, sizeof(char));
+            strcpy(arg_status->InputFile, cpy_token);
+
+        }else if(!strcmp(cpy_token, "&")){
+            /* backgroundcommand = 1 */
+            arg_status->backgroundCommand = 1;
+        }else{
+
+            input_args[cnt] = calloc(strlen(cpy_token)+1, sizeof(char));
+            strcpy(input_args[cnt], cpy_token);
+            ++cnt;
+        }
+
+
         token = strtok_r(NULL, " ", &saveptr);
     }
-    *num_args = cnt;
+    arg_status->num_arg = cnt;
+
+    /* add NULL for execvp*/
+    input_args[cnt] = NULL;
 
 }
 /*
     This process the arguments
-    1. exit: kill any other processes or jobs
+    1. exit: kill any other processes or jobs and return 0
     2. cd:
     3. status
+    4. other
 ******************************************************************/
-void process_arguments(char *input_argus[])
+int process_arguments(char *input_argus[])
 {
-
+    printf("%s\n", input_argus[0]);
+    if(!strcmp(input_argus[0],"exit")){
+        return 0;
+    }else{
+        return 1;
+    }
 }

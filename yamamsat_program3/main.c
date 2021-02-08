@@ -10,8 +10,11 @@
     - for some information
     cs344 Explorations
     - for replacing charactor
+    https://mogachan.net/clangmemcpy/
+    and
     https://programming-place.net/ppp/contents/c/rev_res/string014.html
-
+    - for the reason fo using fflush
+    https://daeudaeu.com/fflush/
 
 
 **********************************************************************************************/
@@ -66,7 +69,7 @@ struct arst{
 
 
 void input_argument(char *input_args[], struct arst *arg_status);
-int process_arguments(char *input_argus[]);
+int process_arguments(char *input_argus[], struct arst *arg_status);
 
 /*
     There variable are chenged by each input
@@ -83,24 +86,32 @@ int main(void) {
 
     do{
         //printf("check: %d", arg_status->check);
-        struct arst arg_status = {0};
+        struct arst arg_status = {0,0,NULL,NULL};
 
         //arg_status->check = 1;
         input_argument(input_args, &arg_status);
         //printf("num: %d\n", num_args);
 
-        /*check if the argument is comment*/
+        /*check if the argument is comment or empty*/
         if(input_args[0][0] != 35 && arg_status.num_arg!= 0){
-            isContinue = process_arguments(input_args);
+            isContinue = process_arguments(input_args, &arg_status);
+            if(isContinue == 2){
+                /*use execvp*/
+            }
         }
 
         /*
-        for(int i = 0; i < num_args; ++i)
-            printf("%s", input_args[i]);
+        for(int i = 0; i < arg_status.num_arg; ++i){
+            printf("%s ", input_args[i]);
+            fflush(stdout);
+        }
         printf("\n");
+        fflush(stdout);
         */
-
         /* reset the argument array*/
+
+
+        /* reset all arguments*/
         for(int i = 0; i < arg_status.num_arg; ++i){
             input_args[i] = NULL;
         }
@@ -148,7 +159,25 @@ void input_argument(char *input_args[],  struct arst *arg_status)
     }
 
 
-
+    /* getpid()*/
+    int num_pid = 1234;
+    char pid[32];
+    /* for replacment, convert PID to string*/
+    sprintf(pid, "%d", num_pid);
+    char *tmp = buffer;
+    /*
+        if there is "$$", replace that to PID
+    */
+    while((tmp = strstr(tmp, "$$")) != NULL){
+        /* tmp2 is pointing after "$$" */
+        const char *tmp2 = tmp + 2;
+        /* move tmp2 after tmp + strlen(pid) */
+        memmove(tmp + strlen(pid), tmp2, strlen(tmp2)+1);
+        /* cpy pid to tmp */
+        memcpy(tmp, pid, strlen(pid));
+        /* next pointer */
+        tmp+=strlen(pid);
+    }
 
     /* split string data into input_args*/
     int cnt = 0;
@@ -161,58 +190,42 @@ void input_argument(char *input_args[],  struct arst *arg_status)
     while(token != NULL){
 
 
-        char *cpy_token = calloc(strlen(token)+1, sizeof(char));
-        strcpy(cpy_token, token);
-        char pid[] = "123";
-        char *tmp = cpy_token;
-        char tmp_buffer[max_charactor];
-        /*
-            if there is "$$", replace that to PID
-        */
-        while((tmp = strstr(tmp, "$$")) != NULL){
-            /* tmp2 is pointing after "$$" */
-            const char *tmp2 = tmp + 2;
-            memmove(tmp + strlen(pid), tmp2, strlen(tmp2)+1);
-            memcpy(tmp, pid, strlen(pid));
-            tmp+=strlen(pid);
-        }
-
-
-        input_args[cnt] = calloc(strlen(cpy_token)+1, sizeof(char));
+        input_args[cnt] = calloc(strlen(token)+1, sizeof(char));
         /*
             if token == ">" or "<", store next file name into struct arst. (do not store into input_args)
             if token == "&", arst->backgroundCommand = 1. (do not store into input_args)
             if token has the
         */
-        if(!strcmp(cpy_token,"<")){
+        if(!strcmp(token,"<")){
             /* move to next argument to store file name*/
-            cpy_token = strtok_r(NULL, " ", &saveptr);
+            token = strtok_r(NULL, " ", &saveptr);
 
             /* dinamic allocate memory for title */
-            arg_status->InputFile = calloc(strlen(cpy_token)+1, sizeof(char));
-            strcpy(arg_status->InputFile, cpy_token);
+            arg_status->InputFile = calloc(strlen(token)+1, sizeof(char));
+            strcpy(arg_status->InputFile, token);
 
-        }else if(!strcmp(cpy_token,">")){
+        }else if(!strcmp(token,">")){
             /* move to next argument to store file name*/
-            cpy_token = strtok_r(NULL, " ", &saveptr);
+            token = strtok_r(NULL, " ", &saveptr);
 
             /* dinamic allocate memory for title */
-            arg_status->OutputFile = calloc(strlen(cpy_token)+1, sizeof(char));
-            strcpy(arg_status->InputFile, cpy_token);
+            arg_status->OutputFile = calloc(strlen(token)+1, sizeof(char));
+            strcpy(arg_status->OutputFile, token);
 
-        }else if(!strcmp(cpy_token, "&")){
+        }else if(!strcmp(token, "&")){
             /* backgroundcommand = 1 */
             arg_status->backgroundCommand = 1;
         }else{
 
-            input_args[cnt] = calloc(strlen(cpy_token)+1, sizeof(char));
-            strcpy(input_args[cnt], cpy_token);
+            input_args[cnt] = calloc(strlen(token)+1, sizeof(char));
+            strcpy(input_args[cnt], token);
             ++cnt;
         }
 
-
         token = strtok_r(NULL, " ", &saveptr);
     }
+
+    /* store number of arguments on struct*/
     arg_status->num_arg = cnt;
 
     /* add NULL for execvp*/
@@ -226,12 +239,71 @@ void input_argument(char *input_args[],  struct arst *arg_status)
     3. status
     4. other
 ******************************************************************/
-int process_arguments(char *input_argus[])
+int process_arguments(char *input_argus[], struct arst *arg_status)
 {
+    /*
     printf("%s\n", input_argus[0]);
+    fflush(stdout);
+    */
+   /*
+    if(arg_status->backgroundCommand){
+        printf("background true\n");
+        fflush(stdout);
+    }
+    if(arg_status->InputFile != NULL){
+        printf("Input true: %s\n", arg_status->InputFile);
+        fflush(stdout);
+    }
+    if(arg_status->OutputFile != NULL){
+        printf("output true: %s\n", arg_status->OutputFile);
+        fflush(stdout);
+    }
+    */
+
+    /* these are built in arguments, no need to check if they are on background process*/
+    /* exit: kill any other processes or jobs and return 0*/
     if(!strcmp(input_argus[0],"exit")){
         return 0;
-    }else{
+    }
+    /*
+        cd: use chdir
+            return value: 0 (success), 1(error)
+        if argument is 1, go home
+        if 2 arguments ,
+    */
+    else if(!strcmp(input_argus[0],"cd")){
+        /* change dir to home*/
+        if(arg_status->num_arg == 1){
+            chdir(getenv("HOME"));
+        }
+        /* try to change current working dir */
+        else if(arg_status->num_arg == 2){
+            char currentDir[128], newPath[128];
+            int chdir_check;
+            /* try 1: absolute path*/
+            chdir_check = chdir(input_argus[1]);
+            /* if try 1 faild, check current dir */
+            if(chdir_check){
+                getcwd(currentDir, 128);
+                sprintf(newPath, "%s/%s", currentDir, input_argus[1]);
+                chdir_check = chdir(newPath);
+            }
+            /* if both faild*/
+            if(chdir_check){
+                printf("cd command faild.\n");
+                fflush(stdout);
+            }
+        }
+        else{
+            printf("Too much argument for cd command\n");
+            fflush(stdout);
+        }
+
         return 1;
+    }else if(!strcmp(input_argus[0],"status")){
+        return 1;
+    }
+    else{
+        return 2;
     }
 }

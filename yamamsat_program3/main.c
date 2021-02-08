@@ -22,6 +22,7 @@
     no need to use getline
     user fgets, not scanf (need to store data line by line)
     have to delete the last charactor
+    SIGINT SIGTSTP
     Todo:
         user input will be stored in struct
         1.skip space or "#"
@@ -40,10 +41,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
-#include <limits.h>
-#include <dirent.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -74,6 +73,10 @@ struct gloval_arst{
     int exit_status;
 };
 
+struct gloval_arst gloval_status = {0, 1};
+/*for ctrl-c and ctrl-z*/
+struct sigaction SIGINT_action = {0};
+struct sigaction SIGTSTP_action = {0};
 /* list of bg_process */
 /*
 struct bg_process{
@@ -88,15 +91,14 @@ struct bg_process *head = NULL;
 struct bg_process *tail = NULL;
 */
 
-void check_bgprocess(struct gloval_arst *glar);
+void handle_SIGTSTP(int signo);
 
+void check_bgprocess();
 void input_argument(char *input_args[], struct arst *arg_status);
-int process_arguments(char *input_argument[], struct arst *arg_status, struct gloval_arst *glar);
-void execute_command(char *input_argument[], struct arst *arg_status, struct gloval_arst *glar);
+int process_arguments(char *input_argument[], struct arst *arg_status);
+void execute_command(char *input_argument[], struct arst *arg_status);
 
-/*
-    There variable are chenged by each input
-************************************************************/
+
 
 
 /*./testscript > mytestresults 2>&1*/
@@ -108,7 +110,28 @@ int main(void) {
     /* initialize all elements */
     /*memset(bg_process, -1, sizeof(bg_process));*/
 
-    struct gloval_arst gloval_status = {0, 1};
+
+
+    /* do not react to ctrl-c */
+    /* that the signal type (ctrl-c) should be ignored*/
+    SIGINT_action.sa_handler = SIG_IGN;
+    /* wont change flag*/
+    SIGINT_action.sa_flags = 0;
+    /*Block all catchable signals while SIGINT_action is running*/
+    sigfillset(&SIGINT_action.sa_mask);
+    /* register the signal handling*/
+    sigaction(SIGINT, &SIGINT_action, NULL);
+
+    /* register ctrl-z to a function*/
+    /* register handle_SIGTSTP as the signal handler*/
+    SIGTSTP_action.sa_handler = handle_SIGTSTP;
+    /*Block all catchable signals while handle_SIGTSTP is running*/
+    sigfillset(&SIGTSTP_action.sa_mask);
+    /* wont change flag*/
+    SIGTSTP_action.sa_flags = 0;
+    /* register the signal handling*/
+    sigaction(SIGTSTP, &SIGTSTP_action, NULL);
+
 
     do{
         //printf("check: %d", arg_status->check);
@@ -120,7 +143,7 @@ int main(void) {
 
         /*check if the argument is comment or empty*/
         if(input_args[0][0] != 35 && arg_status.num_arg!= 0){
-            isContinue = process_arguments(input_args, &arg_status, &gloval_status);
+            isContinue = process_arguments(input_args, &arg_status);
             if(isContinue == 2){
                 /*use execvp*/
                 /*
@@ -129,7 +152,7 @@ int main(void) {
                     or  on os server
                     execvp (const char *__file, char *const __argv[])
                 */
-                execute_command(input_args, &arg_status, &gloval_status);
+                execute_command(input_args, &arg_status);
                 //execvp(input_args[0], (const char * const*)input_args);
             }
         }
@@ -149,7 +172,7 @@ int main(void) {
         for(int i = 0; i < arg_status.num_arg; ++i){
             input_args[i] = NULL;
         }
-        check_bgprocess(&gloval_status);
+        check_bgprocess();
 
     }while(isContinue);
 
@@ -159,24 +182,44 @@ int main(void) {
     return 0;
 }
 /*
+    if gloval_status.active_SIGTSTP == 1, already in foreground-only mode
+    if gloval_status.active_SIGTSTP == 0, activate foreground-only mode
+*****************************************/
+void handle_SIGTSTP(int signo)
+{
+    if(gloval_status.active_SIGTSTP == 0){
+        /* by word counter 48 characters +1*/
+        char message[] = "Entering foreground-only mode (& is now ignored)\n";
+        write(STDOUT_FILENO, message, 49);
+        fflush(stdout);
+        gloval_status.active_SIGTSTP = 1;
+    }else if(gloval_status.active_SIGTSTP == 1){
+        /* by word counter 28 characters +1*/
+        char message[] = "Exiting foreground-only mode\n";
+        write(STDOUT_FILENO, message, 29);
+        fflush(stdout);
+        gloval_status.active_SIGTSTP = 0;
+    }
+}
+/*
     check the back ground process
     if the process is terminated, display message and delete it from list
 ****************************************************************************/
-void check_bgprocess(struct gloval_arst *glar)
+void check_bgprocess()
 {
         int spawnPid;
         //int cnt = num_bg_process;
-		while ( (spawnPid = waitpid(-1, &(glar->exit_status), WNOHANG)) > 0){
+		while ( (spawnPid = waitpid(-1, &(gloval_status.exit_status), WNOHANG)) > 0){
 			printf("background pid %d terminated is done: ", spawnPid);
-                fflush(stdout);
+            fflush(stdout);
 
             /*normal*/
-            if (WIFEXITED(glar->exit_status)){
-                printf("exit value %d\n", WEXITSTATUS(glar->exit_status));
+            if (WIFEXITED(gloval_status.exit_status)){
+                printf("exit value %d\n", WEXITSTATUS(gloval_status.exit_status));
                 fflush(stdout);
 			} /*abnormal*/
-            else if(WIFSIGNALED(glar->exit_status)){
-                printf("terminated by signal %d", WTERMSIG(glar->exit_status));
+            else if(WIFSIGNALED(gloval_status.exit_status)){
+                printf("terminated by signal %d", WTERMSIG(gloval_status.exit_status));
                 fflush(stdout);
             }
         }
@@ -185,17 +228,17 @@ void check_bgprocess(struct gloval_arst *glar)
         for(int i = 0; i < 128; ++i){
             if(bg_process[i] == -1){
                 break;
-            }else if(waitpid(bg_process[i], &(glar->exit_status) , WNOHANG) > 0){
+            }else if(waitpid(bg_process[i], &(gloval_status.exit_status) , WNOHANG) > 0){
                 printf("background pid %d terminated is done: ", bg_process[i]);
                 fflush(stdout);
             }
 
-            if (WIFEXITED(glar->exit_status)){
-                printf("exit value %d\n", bg_process[i], WEXITSTATUS(glar->exit_status));
+            if (WIFEXITED(gloval_status.exit_status)){
+                printf("exit value %d\n", bg_process[i], WEXITSTATUS(gloval_status.exit_status));
                 fflush(stdout);
 			}
-            else if(WIFSIGNALED(glar->exit_status)){
-                printf("terminated by signal %d", WTERMSIG(glar->exit_status));
+            else if(WIFSIGNALED(gloval_status.exit_status)){
+                printf("terminated by signal %d", WTERMSIG(gloval_status.exit_status));
                 fflush(stdout);
             }
             bg_process[i] = -1;
@@ -320,7 +363,7 @@ void input_argument(char *input_args[],  struct arst *arg_status)
     3. status
     4. other
 ******************************************************************/
-int process_arguments(char *input_argus[], struct arst *arg_status, struct gloval_arst *glar)
+int process_arguments(char *input_argus[], struct arst *arg_status)
 {
     /*
     printf("%s\n", input_argus[0]);
@@ -344,6 +387,9 @@ int process_arguments(char *input_argus[], struct arst *arg_status, struct glova
     /* these are built in arguments, no need to check if they are on background process*/
     /* exit: kill any other processes or jobs and return 0*/
     if(!strcmp(input_argus[0],"exit")){
+        /*send this signal to all child*/
+
+        kill(0, SIGTERM);
         return 0;
     }
     /*
@@ -382,12 +428,12 @@ int process_arguments(char *input_argus[], struct arst *arg_status, struct glova
 
         return 1;
     }else if(!strcmp(input_argus[0],"status")){
-        if(WIFEXITED(glar->exit_status)){
-            printf("exit value %d\n", WEXITSTATUS(glar->exit_status));
+        if(WIFEXITED(gloval_status.exit_status)){
+            printf("exit value %d\n", WEXITSTATUS(gloval_status.exit_status));
             fflush(stdout);
 		} /*abnormal*/
-        else if(WIFSIGNALED(glar->exit_status)){
-            printf("terminated by signal %d", WTERMSIG(glar->exit_status));
+        else if(WIFSIGNALED(gloval_status.exit_status)){
+            printf("terminated by signal %d", WTERMSIG(gloval_status.exit_status));
             fflush(stdout);
         }
         return 1;
@@ -402,7 +448,7 @@ int process_arguments(char *input_argus[], struct arst *arg_status, struct glova
     if backgroundCommand = 1 and  active_SIGTSTP = 0, do not need to wait for child
     else need to wait for child
 **************************************************************************/
-void execute_command(char *input_argument[], struct arst *arg_status, struct gloval_arst *glar)
+void execute_command(char *input_argument[], struct arst *arg_status)
 {
     int in_fdescriptor = 0, out_fdescriptor = 0;
     int result;
@@ -415,6 +461,14 @@ void execute_command(char *input_argument[], struct arst *arg_status, struct glo
 			exit(1);
 			break;
 		case 0:
+
+            /* a foreground process must terminate itself when it receives SIGINT */
+            if(arg_status->backgroundCommand == 0 || gloval_status.active_SIGTSTP == 1){
+                /*change to defoult*/
+                SIGINT_action.sa_handler=SIG_DFL;
+                sigaction(SIGINT, &SIGINT_action, NULL);
+            }
+
             /* if need to redirect input output */
 			if(arg_status->InputFile != NULL){
                 in_fdescriptor = open(arg_status->InputFile, O_RDONLY);
@@ -465,15 +519,15 @@ void execute_command(char *input_argument[], struct arst *arg_status, struct glo
 		default:
 
             /* if there was & and SIGTSTP is not active*/
-			if (arg_status->backgroundCommand && glar->active_SIGTSTP == 0) {
+			if (arg_status->backgroundCommand && gloval_status.active_SIGTSTP == 0) {
                 /* no need to wait for this child */
-				pid_t childPid = waitpid(spawnPid, &(glar->exit_status) , WNOHANG);
+				pid_t childPid = waitpid(spawnPid, &(gloval_status.exit_status) , WNOHANG);
 				printf("background pid is %d\n", spawnPid);
 				fflush(stdout);
 			}
 			// Otherwise execute it like normal
 			else {
-				pid_t childPid = waitpid(spawnPid, &(glar->exit_status), 0);
+				pid_t childPid = waitpid(spawnPid, &(gloval_status.exit_status), 0);
 			}
 
 	}

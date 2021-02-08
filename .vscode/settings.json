@@ -3,6 +3,7 @@
         "*.ipp": "c",
         "sstream": "c",
         "regex": "c",
-        "string_view": "c"
+        "string_view": "c",
+        "stat.h": "c"
     }
 }

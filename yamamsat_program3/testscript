@@ -1,11 +1,38 @@
 #!/bin/bash
-
-echo "test code"
-echo "calculator"
-
 ./smallsh <<'___EOF___'
-echo$$$WSaaaa
-echo$$$
-$$$$
+ls
+ls > junk
+status
+cat junk
+wc < junk > junk2
+wc < junk
+test -f badfile
+status
+wc < badfile
+status
+badfile
+sleep 5
+status &
+sleep 15 &
+ps
+
+echo that was a blank command line, this is a comment line
+
+echo the background sleep finally finished
+sleep 30 &
+kill -15 4941
+pwd
+cd
+pwd
+cd CS344
+pwd
+echo 4867
+echo $$
+date
+sleep 5 &
+date
+date
+sleep 5 &
+date
 exit
 ___EOF___

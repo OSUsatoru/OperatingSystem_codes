@@ -15,29 +15,16 @@
     https://programming-place.net/ppp/contents/c/rev_res/string014.html
     - for the reason fo using fflush
     https://daeudaeu.com/fflush/
+    - for understanding the process of fork
+    https://teratail.com/questions/229921
+    - for waitpid options
+    https://man7.org/linux/man-pages/man2/waitpid.2.html
+    - for exec
+    https://man7.org/linux/man-pages/man3/exec.3.html
+
 
 
 **********************************************************************************************/
-/*
-    no need to use getline
-    user fgets, not scanf (need to store data line by line)
-    have to delete the last charactor
-    SIGINT SIGTSTP
-    Todo:
-        user input will be stored in struct
-        1.skip space or "#"
-        2.exit cd status or exec()
-        use execlp() or execvp()
-
-        if "<", input file true -> dup2, 0
-        if ">", output file true -> dup2, 1
-        dup2
-
-        if "#", comment true
-        if "&", background process true
-        if "$$", replace that to pid
-
-**/
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -60,9 +47,14 @@ const int max_charactor = 2049;
 */
 const int max_arg = 513;
 
-/* reset for new input */
+
+/*
+    this store the argument status
+    reset for each input
+*/
 struct arst{
     int num_arg;
+    /*&*/
     _Bool backgroundCommand;
     char *InputFile;
     char *OutputFile;
@@ -72,36 +64,46 @@ struct gloval_arst{
     _Bool active_SIGTSTP;
     int exit_status;
 };
-
+/* Initialize the grobal argument*/
 struct gloval_arst gloval_status = {0, 1};
+
 /*for ctrl-c and ctrl-z*/
+/* ignore ctrl-c */
 struct sigaction SIGINT_action = {0};
+/* function register to ctrl-c*/
+struct sigaction SIGINT_action2 = {0};
+/*  function register to ctrl-z  */
 struct sigaction SIGTSTP_action = {0};
-/* list of bg_process */
-/*
+/* ignore ctrl-z */
+struct sigaction SIGTSTP_action2 = {0};
+
+/* decidet not to use
+list of bg_process
 struct bg_process{
     pid_t bg_processes;
     struct bg_process *next;
-};*/
-/* this is not efficient */
-/*int bg_process[128];*/
+};
+this is not efficient
+int bg_process[128];
 int num_bg_process = 0;
-/*
+
 struct bg_process *head = NULL;
 struct bg_process *tail = NULL;
 */
 
 void handle_SIGTSTP(int signo);
+void handle_SIGINT(int signo);
 
 void check_bgprocess();
 void input_argument(char *input_args[], struct arst *arg_status);
 int process_arguments(char *input_argument[], struct arst *arg_status);
 void execute_command(char *input_argument[], struct arst *arg_status);
 
-
-
-
-/*./testscript > mytestresults 2>&1*/
+/*
+    the main function
+    this initialize the signals ctrl-c and ctrl-z
+    and loop to get output until exit
+*****************************************************************/
 int main(void) {
 
     /*store all arguments in line*/
@@ -110,15 +112,13 @@ int main(void) {
     /* initialize all elements */
     /*memset(bg_process, -1, sizeof(bg_process));*/
 
-
-
     /* do not react to ctrl-c */
     /* that the signal type (ctrl-c) should be ignored*/
     SIGINT_action.sa_handler = SIG_IGN;
-    /* wont change flag*/
-    SIGINT_action.sa_flags = 0;
     /*Block all catchable signals while SIGINT_action is running*/
     sigfillset(&SIGINT_action.sa_mask);
+    /* wont change flag*/
+    SIGINT_action.sa_flags = 0;
     /* register the signal handling*/
     sigaction(SIGINT, &SIGINT_action, NULL);
 
@@ -127,14 +127,13 @@ int main(void) {
     SIGTSTP_action.sa_handler = handle_SIGTSTP;
     /*Block all catchable signals while handle_SIGTSTP is running*/
     sigfillset(&SIGTSTP_action.sa_mask);
-    /* wont change flag*/
-    SIGTSTP_action.sa_flags = 0;
+    /* continue process*/
+    SIGTSTP_action.sa_flags = SA_RESTART;
     /* register the signal handling*/
     sigaction(SIGTSTP, &SIGTSTP_action, NULL);
 
 
     do{
-        //printf("check: %d", arg_status->check);
         struct arst arg_status = {0,0,NULL,NULL};
 
         //arg_status->check = 1;
@@ -201,6 +200,17 @@ void handle_SIGTSTP(int signo)
         gloval_status.active_SIGTSTP = 0;
     }
 }
+void handle_SIGINT(int signo)
+{
+    char message[] = "terminated by signal 2\n";
+    /*
+    sprintf(message, "terminated by signal %d\n", signo);
+    */
+    write(STDOUT_FILENO, message, 25);
+    fflush(stdout);
+
+    exit(2);
+}
 /*
     check the back ground process
     if the process is terminated, display message and delete it from list
@@ -219,7 +229,7 @@ void check_bgprocess()
                 fflush(stdout);
 			} /*abnormal*/
             else if(WIFSIGNALED(gloval_status.exit_status)){
-                printf("terminated by signal %d", WTERMSIG(gloval_status.exit_status));
+                printf("terminated by signal %d\n", WTERMSIG(gloval_status.exit_status));
                 fflush(stdout);
             }
         }
@@ -261,11 +271,10 @@ void check_bgprocess()
 **********************************************************************/
 void input_argument(char *input_args[],  struct arst *arg_status)
 {
-    char buffer[max_charactor];
-    /* Display ": " when store argument
     printf(": ");
     fflush(stdout);
-    */
+    char buffer[max_charactor];
+    /* Display ": " when store argument*/
 
     /* to store input*/
     fgets(buffer, max_charactor-1, stdin);
@@ -281,7 +290,6 @@ void input_argument(char *input_args[],  struct arst *arg_status)
         arg_status->num_arg = 0;
         return;
     }
-
 
     /* getpid()*/
     int num_pid = getpid();
@@ -365,30 +373,12 @@ void input_argument(char *input_args[],  struct arst *arg_status)
 ******************************************************************/
 int process_arguments(char *input_argus[], struct arst *arg_status)
 {
-    /*
-    printf("%s\n", input_argus[0]);
-    fflush(stdout);
-    */
-   /*
-    if(arg_status->backgroundCommand){
-        printf("background true\n");
-        fflush(stdout);
-    }
-    if(arg_status->InputFile != NULL){
-        printf("Input true: %s\n", arg_status->InputFile);
-        fflush(stdout);
-    }
-    if(arg_status->OutputFile != NULL){
-        printf("output true: %s\n", arg_status->OutputFile);
-        fflush(stdout);
-    }
-    */
-
     /* these are built in arguments, no need to check if they are on background process*/
     /* exit: kill any other processes or jobs and return 0*/
     if(!strcmp(input_argus[0],"exit")){
         /*send this signal to all child*/
-
+        printf("exit\n");
+        fflush(stdout);
         kill(0, SIGTERM);
         return 0;
     }
@@ -433,7 +423,7 @@ int process_arguments(char *input_argus[], struct arst *arg_status)
             fflush(stdout);
 		} /*abnormal*/
         else if(WIFSIGNALED(gloval_status.exit_status)){
-            printf("terminated by signal %d", WTERMSIG(gloval_status.exit_status));
+            printf("terminated by signal %d\n", WTERMSIG(gloval_status.exit_status));
             fflush(stdout);
         }
         return 1;
@@ -464,9 +454,30 @@ void execute_command(char *input_argument[], struct arst *arg_status)
 
             /* a foreground process must terminate itself when it receives SIGINT */
             if(arg_status->backgroundCommand == 0 || gloval_status.active_SIGTSTP == 1){
-                /*change to defoult*/
+                /* resist the function */
+
+                signal(SIGINT, handle_SIGINT);
+                /*
+                SIGINT_action2.sa_handler = handle_SIGINT;
+                sigfillset(&SIGINT_action2.sa_mask);
+                SIGINT_action2.sa_flags = 0;
+                */
+                /* register function to ctrl-c */
+                sigaction(SIGINT, &SIGINT_action2, NULL);
+
+
+                /* ignore ctrl-z */
+                SIGTSTP_action2.sa_handler = SIG_IGN;
+                /*Block all catchable signals while handle_SIGTSTP is running*/
+                sigfillset(&SIGTSTP_action2.sa_mask);
+                /* continue process*/
+                SIGTSTP_action2.sa_flags = 0;
+                sigaction(SIGTSTP, &SIGTSTP_action2, NULL);
+
+                /*
                 SIGINT_action.sa_handler=SIG_DFL;
                 sigaction(SIGINT, &SIGINT_action, NULL);
+                */
             }
 
             /* if need to redirect input output */
@@ -486,7 +497,7 @@ void execute_command(char *input_argument[], struct arst *arg_status)
 				}
             }
             if(arg_status->OutputFile != NULL){
-                out_fdescriptor = open(arg_status->OutputFile, O_CREAT|O_WRONLY|O_APPEND, 0666);
+                out_fdescriptor = open(arg_status->OutputFile, O_CREAT|O_WRONLY|O_TRUNC, 0755);
                 /* if failed open file*/
 				if (out_fdescriptor == -1){
 					printf("cannot open %s for output\n", arg_status->OutputFile);
@@ -502,7 +513,6 @@ void execute_command(char *input_argument[], struct arst *arg_status)
             }
 
 
-
 			execvp(input_argument[0], (char* const*)input_argument);
 
             /*error if child reachs here*/
@@ -511,7 +521,7 @@ void execute_command(char *input_argument[], struct arst *arg_status)
             /*close file*/
             close(in_fdescriptor);
             close(out_fdescriptor);
-			exit(1);
+			exit(2);
 
 
             break;

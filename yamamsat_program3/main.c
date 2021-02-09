@@ -134,25 +134,16 @@ int main(void) {
 
 
     do{
+        /* this stores status for each input */
         struct arst arg_status = {0,0,NULL,NULL};
-
-        //arg_status->check = 1;
+        /* this stores the user input as arguments */
         input_argument(input_args, &arg_status);
-        //printf("num: %d\n", num_args);
 
         /*check if the argument is comment or empty*/
         if(input_args[0][0] != 35 && arg_status.num_arg!= 0){
             isContinue = process_arguments(input_args, &arg_status);
             if(isContinue == 2){
-                /*use execvp*/
-                /*
-                    my pc
-                    execvp(input_args[0], const char * const*(input_args));
-                    or  on os server
-                    execvp (const char *__file, char *const __argv[])
-                */
                 execute_command(input_args, &arg_status);
-                //execvp(input_args[0], (const char * const*)input_args);
             }
         }
 
@@ -164,13 +155,13 @@ int main(void) {
         printf("\n");
         fflush(stdout);
         */
-        /* reset the argument array*/
 
 
         /* reset all arguments*/
         for(int i = 0; i < arg_status.num_arg; ++i){
             input_args[i] = NULL;
         }
+        /* check if there is a terminated child process */
         check_bgprocess();
 
     }while(isContinue);
@@ -181,9 +172,10 @@ int main(void) {
     return 0;
 }
 /*
+    this react to ctrl-z signal
     if gloval_status.active_SIGTSTP == 1, already in foreground-only mode
     if gloval_status.active_SIGTSTP == 0, activate foreground-only mode
-*****************************************/
+*****************************************************************************/
 void handle_SIGTSTP(int signo)
 {
     if(gloval_status.active_SIGTSTP == 0){
@@ -200,6 +192,9 @@ void handle_SIGTSTP(int signo)
         gloval_status.active_SIGTSTP = 0;
     }
 }
+/*
+    this react to ctrl-c for non-background child process
+*******************************************************************************/
 void handle_SIGINT(int signo)
 {
     char message[] = "terminated by signal 2\n";
@@ -212,13 +207,13 @@ void handle_SIGINT(int signo)
     exit(2);
 }
 /*
-    check the back ground process
+    this checks the back ground process
     if the process is terminated, display message and delete it from list
 ****************************************************************************/
 void check_bgprocess()
 {
         int spawnPid;
-        //int cnt = num_bg_process;
+
 		while ( (spawnPid = waitpid(-1, &(gloval_status.exit_status), WNOHANG)) > 0){
 			printf("background pid %d terminated is done: ", spawnPid);
             fflush(stdout);
@@ -259,11 +254,13 @@ void check_bgprocess()
 /*
     This receive input line by line and store each argument
     React to:
-        1. "#" comment (no need)
+        1. "#" comment (not react here)
 
         2. "&&" replace to pid
         3. "<" input file true -> dup2, 0
         4. ">", output file true -> dup2, 1
+        5. "&" this argument executes on background child
+    split user input by space and store information into array
 
     1. return arguments
     2. return arg_status
@@ -271,10 +268,12 @@ void check_bgprocess()
 **********************************************************************/
 void input_argument(char *input_args[],  struct arst *arg_status)
 {
+    /* Display ": " when store argument*/
     printf(": ");
     fflush(stdout);
+
+
     char buffer[max_charactor];
-    /* Display ": " when store argument*/
 
     /* to store input*/
     fgets(buffer, max_charactor-1, stdin);
@@ -311,6 +310,8 @@ void input_argument(char *input_args[],  struct arst *arg_status)
         tmp+=strlen(pid);
     }
 
+
+
     /* split string data into input_args*/
     int cnt = 0;
     /* for strtok_r*/
@@ -318,20 +319,17 @@ void input_argument(char *input_args[],  struct arst *arg_status)
     /* store title info */
     char *token = strtok_r(buffer, " ", &saveptr);
 
-    /* check if there is: ">" "<" */
+    /* check if there is: ">" "<", or "&" */
     while(token != NULL){
-
 
         input_args[cnt] = calloc(strlen(token)+1, sizeof(char));
         /*
             if token == ">" or "<", store next file name into struct arst. (do not store into input_args)
             if token == "&", arst->backgroundCommand = 1. (do not store into input_args)
-            if token has the
         */
         if(!strcmp(token,"<")){
             /* move to next argument to store file name*/
             token = strtok_r(NULL, " ", &saveptr);
-
             /* dinamic allocate memory for title */
             arg_status->InputFile = calloc(strlen(token)+1, sizeof(char));
             strcpy(arg_status->InputFile, token);
@@ -339,7 +337,6 @@ void input_argument(char *input_args[],  struct arst *arg_status)
         }else if(!strcmp(token,">")){
             /* move to next argument to store file name*/
             token = strtok_r(NULL, " ", &saveptr);
-
             /* dinamic allocate memory for title */
             arg_status->OutputFile = calloc(strlen(token)+1, sizeof(char));
             strcpy(arg_status->OutputFile, token);
@@ -353,7 +350,6 @@ void input_argument(char *input_args[],  struct arst *arg_status)
             strcpy(input_args[cnt], token);
             ++cnt;
         }
-
         token = strtok_r(NULL, " ", &saveptr);
     }
 
@@ -367,9 +363,9 @@ void input_argument(char *input_args[],  struct arst *arg_status)
 /*
     This process the arguments
     1. exit: kill any other processes or jobs and return 0
-    2. cd:
-    3. status
-    4. other
+    2. cd: change current dir. If there is no argument, change to HOME dir
+    3. status: display the status of terminated process
+    4. other: return 2
 ******************************************************************/
 int process_arguments(char *input_argus[], struct arst *arg_status)
 {
@@ -386,7 +382,7 @@ int process_arguments(char *input_argus[], struct arst *arg_status)
         cd: use chdir
             return value: 0 (success), 1(error)
         if argument is 1, go home
-        if 2 arguments ,
+        if 2 arguments, try it as an absolute path, and try it as a relative path
     */
     else if(!strcmp(input_argus[0],"cd")){
         /* change dir to home*/
@@ -411,23 +407,27 @@ int process_arguments(char *input_argus[], struct arst *arg_status)
                 fflush(stdout);
             }
         }
+        /* Invalid input */
         else{
             printf("Too much argument for cd command\n");
             fflush(stdout);
         }
-
         return 1;
+
+    /*display status*/
     }else if(!strcmp(input_argus[0],"status")){
+        /* normal */
         if(WIFEXITED(gloval_status.exit_status)){
             printf("exit value %d\n", WEXITSTATUS(gloval_status.exit_status));
             fflush(stdout);
-		} /*abnormal*/
+		} /* abnormal */
         else if(WIFSIGNALED(gloval_status.exit_status)){
             printf("terminated by signal %d\n", WTERMSIG(gloval_status.exit_status));
             fflush(stdout);
         }
         return 1;
     }
+    /* other commands*/
     else{
         return 2;
     }
@@ -436,7 +436,7 @@ int process_arguments(char *input_argus[], struct arst *arg_status)
     This executes other commands
     if there is input or output file, try open and redirect stdout and stdin
     if backgroundCommand = 1 and  active_SIGTSTP = 0, do not need to wait for child
-    else need to wait for child
+    else need to wait for child, but the child process has to react to ctrl-c and ignore ctrl-z
 **************************************************************************/
 void execute_command(char *input_argument[], struct arst *arg_status)
 {
@@ -451,11 +451,9 @@ void execute_command(char *input_argument[], struct arst *arg_status)
 			exit(1);
 			break;
 		case 0:
-
             /* a foreground process must terminate itself when it receives SIGINT */
             if(arg_status->backgroundCommand == 0 || gloval_status.active_SIGTSTP == 1){
                 /* resist the function */
-
                 signal(SIGINT, handle_SIGINT);
                 /*
                 SIGINT_action2.sa_handler = handle_SIGINT;
@@ -464,7 +462,6 @@ void execute_command(char *input_argument[], struct arst *arg_status)
                 */
                 /* register function to ctrl-c */
                 sigaction(SIGINT, &SIGINT_action2, NULL);
-
 
                 /* ignore ctrl-z */
                 SIGTSTP_action2.sa_handler = SIG_IGN;
@@ -512,7 +509,12 @@ void execute_command(char *input_argument[], struct arst *arg_status)
 				}
             }
 
-
+            /*
+                my pc
+                execvp(input_args[0], const char * const*(input_args));
+                or  on os server
+                execvp (const char *__file, char *const __argv[])
+            ********************************************************************/
 			execvp(input_argument[0], (char* const*)input_argument);
 
             /*error if child reachs here*/
@@ -521,8 +523,9 @@ void execute_command(char *input_argument[], struct arst *arg_status)
             /*close file*/
             close(in_fdescriptor);
             close(out_fdescriptor);
-			exit(2);
 
+            /* have to have exit here */
+			exit(2);
 
             break;
 

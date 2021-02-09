@@ -55,13 +55,13 @@ const int max_arg = 513;
 struct arst{
     int num_arg;
     /*&*/
-    _Bool backgroundCommand;
+    int backgroundCommand;
     char *InputFile;
     char *OutputFile;
 };
 /* unchanged status*/
 struct gloval_arst{
-    _Bool active_SIGTSTP;
+    int active_SIGTSTP;
     int exit_status;
 };
 /* Initialize the grobal argument*/
@@ -94,8 +94,9 @@ struct bg_process *tail = NULL;
 void handle_SIGTSTP(int signo);
 void handle_SIGINT(int signo);
 
-void check_bgprocess();
+
 void input_argument(char *input_args[], struct arst *arg_status);
+void check_bgprocess();
 int process_arguments(char *input_argument[], struct arst *arg_status);
 void execute_command(char *input_argument[], struct arst *arg_status);
 
@@ -162,7 +163,7 @@ int main(void) {
             input_args[i] = NULL;
         }
         /* check if there is a terminated child process */
-        check_bgprocess();
+
 
     }while(isContinue);
 
@@ -178,6 +179,7 @@ int main(void) {
 *****************************************************************************/
 void handle_SIGTSTP(int signo)
 {
+    sleep(1);
     if(gloval_status.active_SIGTSTP == 0){
         /* by word counter 48 characters +1*/
         char message[] = "Entering foreground-only mode (& is now ignored)\n";
@@ -215,18 +217,21 @@ void check_bgprocess()
         int spawnPid;
 
 		while ( (spawnPid = waitpid(-1, &(gloval_status.exit_status), WNOHANG)) > 0){
-			printf("background pid %d terminated is done: ", spawnPid);
-            fflush(stdout);
+            if(gloval_status.active_SIGTSTP==0){
+                printf("background pid %d terminated is done: ", spawnPid);
+                fflush(stdout);
 
-            /*normal*/
-            if (WIFEXITED(gloval_status.exit_status)){
-                printf("exit value %d\n", WEXITSTATUS(gloval_status.exit_status));
-                fflush(stdout);
-			} /*abnormal*/
-            else if(WIFSIGNALED(gloval_status.exit_status)){
-                printf("terminated by signal %d\n", WTERMSIG(gloval_status.exit_status));
-                fflush(stdout);
+                /*normal*/
+                if (WIFEXITED(gloval_status.exit_status)){
+                    printf("exit value %d\n", WEXITSTATUS(gloval_status.exit_status));
+                    fflush(stdout);
+                } /*abnormal*/
+                else if(WIFSIGNALED(gloval_status.exit_status)){
+                    printf("terminated by signal %d\n", WTERMSIG(gloval_status.exit_status));
+                    fflush(stdout);
+                }
             }
+
         }
 
         /*
@@ -359,6 +364,7 @@ void input_argument(char *input_args[],  struct arst *arg_status)
     /* add NULL for execvp*/
     input_args[cnt] = NULL;
 
+
 }
 /*
     This process the arguments
@@ -454,12 +460,12 @@ void execute_command(char *input_argument[], struct arst *arg_status)
             /* a foreground process must terminate itself when it receives SIGINT */
             if(arg_status->backgroundCommand == 0 || gloval_status.active_SIGTSTP == 1){
                 /* resist the function */
-                signal(SIGINT, handle_SIGINT);
-                /*
+                //signal(SIGINT, handle_SIGINT);
+
                 SIGINT_action2.sa_handler = handle_SIGINT;
                 sigfillset(&SIGINT_action2.sa_mask);
                 SIGINT_action2.sa_flags = 0;
-                */
+
                 /* register function to ctrl-c */
                 sigaction(SIGINT, &SIGINT_action2, NULL);
 
@@ -530,18 +536,20 @@ void execute_command(char *input_argument[], struct arst *arg_status)
             break;
 
 		default:
-
             /* if there was & and SIGTSTP is not active*/
-			if (arg_status->backgroundCommand && gloval_status.active_SIGTSTP == 0) {
+			if (arg_status->backgroundCommand && (gloval_status.active_SIGTSTP==0)){
                 /* no need to wait for this child */
 				pid_t childPid = waitpid(spawnPid, &(gloval_status.exit_status) , WNOHANG);
-				printf("background pid is %d\n", spawnPid);
+                if(gloval_status.active_SIGTSTP==0)
+				    printf("background pid is %d\n", spawnPid);
 				fflush(stdout);
 			}
 			// Otherwise execute it like normal
 			else {
 				pid_t childPid = waitpid(spawnPid, &(gloval_status.exit_status), 0);
 			}
+            check_bgprocess();
+            break;
 
 	}
 }

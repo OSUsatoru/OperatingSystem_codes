@@ -9,6 +9,7 @@
 
     - for some information
     cs344 Explorations
+
     - for replacing charactor
     https://mogachan.net/clangmemcpy/
     and

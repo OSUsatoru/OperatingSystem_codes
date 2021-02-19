@@ -1,0 +1,36 @@
+
+#include <pthread.h>
+
+int pthread_create(pthread_t *thread,
+                const pthread_attr_t *attr,
+                void *(*start_routine) (void *),
+                void *arg);
+
+1.  thread points to a variable into which the ID of the new thread is written.
+    Its type is pthread_t which is platform dependent, but is likely to be an unsigned long.
+
+2.  attr points to a pthread_attr_t struct that contains option flags. This argument can be NULL if we don’t want to pass any flags.
+
+3.  start_routine points to a function that will be the starting point of execution for the new thread.
+    This function take an argument which is a void pointer and it return a void pointer.
+
+4.  arg points to the sole argument that is passed into start_routine.
+    If multiple arguments need to be passed, we can pass a struct.
+    If no arguments need to be passed, we pass a NULL.
+
+
+void pthread_exit(void *retval);
+int pthread_cancel(pthread_t thread);
+int pthread_join(pthread_t thread, void **retval);
+pthread_t pthread_self(void);
+//This function always succeeds and return a value of  its own ID
+int pthread_equal(pthread_t t1, pthread_t t2);
+
+// Mutex stands for mutual exclusion
+pthread_mutex_t myMutex = PTHREAD_MUTEX_INITIALIZER;
+int pthread_mutex_lock（pthread_mutex_t * mutex）;
+int pthread_mutex_trylock（pthread_mutex_t * mutex）;
+int pthread_mutex_unlock（pthread_mutex_t * mutex）;
+
+pthread_cond_wait（pthread_cond_t * cond、pthread_mutex_t * m）;
+pthread_cond_signal（pthread_cond_t * cond）;

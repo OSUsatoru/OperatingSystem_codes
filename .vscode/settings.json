@@ -4,6 +4,7 @@
         "sstream": "c",
         "regex": "c",
         "string_view": "c",
-        "stat.h": "c"
+        "stat.h": "c",
+        "functional": "c"
     }
 }

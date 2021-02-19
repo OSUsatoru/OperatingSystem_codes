@@ -86,7 +86,7 @@ pthread_mutex_t mutex_3 = PTHREAD_MUTEX_INITIALIZER;
 /* Initialize the condition variable for buffer 3 */
 pthread_cond_t full_3 = PTHREAD_COND_INITIALIZER;
 
-char buffer_4[SIZE];
+char buffer_4[SIZE]="";
 
 void *input_thread();
 void get_buffer_1(char *str);
@@ -287,13 +287,16 @@ void get_buff_3(char *str)
     pthread_mutex_unlock(&mutex_3);
 }
 /*
-
+    buffer_4 stores un-used string
 *************************************************************/
 void *output_thread()
 {
 
     int quit = 0;
+
     char input[SIZE];
+
+
     for(int i = 0; i < NUM_ITEMS && !quit; ++i){
         memset(input, 0, SIZE);
         get_buff_3(input);
@@ -301,9 +304,33 @@ void *output_thread()
         if(strncmp(input, "STOP\n", 5) == 0){
             quit = 1;
         }else{
-            printf("%s\n", input);
-            /* we need to display from stdout stream imadiately */
+            char *p_input = input;
+            int input_size = strlen(p_input), buff_size = strlen(buffer_4);
+            /*
+            printf("input:%d\n", input_size);
             fflush(stdout);
+            printf("buffer:%d\n", buff_size);
+            fflush(stdout);
+            */
+            /* if there are enough charactors to display */
+            while(input_size + buff_size >= NUM_DISPLAY ){
+                /* need (NUM_DISPLAY - buff_size) charactors*/
+                int need_chars = NUM_DISPLAY - buff_size;
+                strncat(buffer_4, p_input, need_chars);
+
+                printf("%s\n", buffer_4);
+                /* we need to display from stdout stream imadiately */
+                fflush(stdout);
+                memset(buffer_4, 0, SIZE);
+                p_input+=need_chars;
+
+                input_size = strlen(p_input);
+
+                buff_size = strlen(buffer_4);
+
+            }
+            strcat(buffer_4, p_input);
+
         }
     }
 

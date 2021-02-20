@@ -15,33 +15,17 @@
     cs344 Explorations
 
 **********************************************************************************************/
-/*  TODO
-    Thread 1, called the Input Thread, reads in lines of characters from the standard input.
-
-    Thread 2, called the Line Separator Thread, replaces every line separator in the input by a space.
-    '\n' to space
-    Thread 3, called the Plus Sign thread, replaces every pair of plus signs, i.e., "++", by a "^".
-    replace ++ to ^
-    --count
-    Thread 4, called the Output Thread, write this processed data to standard output as lines of exactly 80 characters.
-    count the charactors and display
-**********************************************************************************************/
-/*
-    pickup info
-    The input will not contain any empty lines, i.e., lines that only have space characters or no characters except the line separator.
-    An input line will never be longer than 1000 characters (including the line separator).
-    The input for the program will never have more than 49 lines before the stop-processing line.
-    Your program doesn't need to check the input for correctness..
-************************************************************************************************/
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
 #include <unistd.h>
 
-/* size of input buffers */
+/*  size of input buffers
+    An input line will never be longer than 1000 characters (including the line separator).*/
 #define SIZE 1000
-/* number of input lines (I may use 50 to read last input) */
+/*  number of input lines (I may use 50 to read last input)
+    The input for the program will never have more than 49 lines before the stop-processing line.*/
 #define NUM_ITEMS 49
 
 /* number of output charactors per line */
@@ -86,7 +70,9 @@ pthread_mutex_t mutex_3 = PTHREAD_MUTEX_INITIALIZER;
 /* Initialize the condition variable for buffer 3 */
 pthread_cond_t full_3 = PTHREAD_COND_INITIALIZER;
 
+/* This buffer is used by only Output thread, so I do not need to lock this area */
 char buffer_4[SIZE]="";
+
 
 void *input_thread();
 void get_buffer_1(char *str);
@@ -101,17 +87,21 @@ void get_buff_3(char *str);
 
 void *output_thread();
 
+/*
+    The main function created threads and wait for the threads to terminate
+**************************************************************/
 int main()
 {
     pthread_t input_t, line_separator_t, plus_sign_t, output_t;
 
+    /* create threads */
     pthread_create(&input_t, NULL, input_thread, NULL);
     pthread_create(&line_separator_t, NULL, line_separator_thread, NULL);
     pthread_create(&plus_sign_t, NULL, plus_sign_thread, NULL);
     pthread_create(&output_t, NULL, output_thread, NULL);
 
 
-    // Wait for the threads to terminate
+    /* Wait for the threads */
     pthread_join(input_t, NULL);
     pthread_join(line_separator_t, NULL);
     pthread_join(plus_sign_t, NULL);
@@ -120,17 +110,19 @@ int main()
     return EXIT_SUCCESS;
 }
 /*
-    reads in lines of charactors from the standard input and store data in buffer_1
-    while it stores data, function (ine_separator thread) that uses buffer_1 is locked.
+    This reads in lines of charactors from the standard input and store data in buffer_1
+    while it stores data, function that uses buffer_1 is locked.
     after that, this send a sigal to line_separator thread
     once this detect the input of "STOP", stop reading data.
+    The input will not contain any empty lines, i.e., lines that only have space characters or no characters except the line separator.
+    Your program doesn't need to check the input for correctness.
 ***************************************************/
 void *input_thread()
 {
     int quit = 0;
     char input[SIZE];
     for(int i = 0; i < NUM_ITEMS && !quit; ++i){
-        /* reset imput buffer */
+        /* reset input buffer */
         memset(input, 0, SIZE);
         /* reads in lines of charactors from the standard input */
         fgets(input, SIZE-1, stdin);
@@ -144,6 +136,7 @@ void *input_thread()
         /* count　unprocessed input */
         count_1++;
 
+        /* if input is "STOP"*/
         if(strncmp(input, "STOP\n", 5) == 0){
             quit = 1;
         }
@@ -154,22 +147,31 @@ void *input_thread()
     }
     return NULL;
 }
+/*
+    This function wait the signal of the producer and copy the data from buffer_1 to str
+    function that uses buffer_1 is locked until this process is done.
+***********************************************************************/
 void get_buffer_1(char *str)
 {
     /* Lock the mutex before checking if the buffer has data */
     pthread_mutex_lock(&mutex_1);
-    // Buffer is empty. Wait for the producer to signal that the buffer has data
+    /* Buffer is empty. Wait for the producer to signal that the buffer has data */
     while (count_1 == 0){
         pthread_cond_wait(&full_1, &mutex_1);
     }
+    /* copy input strnig to str */
     strcpy(str, buffer_1[con_idx_1]);
-    // Increment the index from which the item will be picked up
+    /* Increment the index from which the item will be picked up */
     con_idx_1 = con_idx_1 + 1;
+    /* decrease counter */
     count_1--;
-    // Unlock the mutex
+    /* Unlock the mutex */
     pthread_mutex_unlock(&mutex_1);
 }
 /*
+    This function gets data from buffer_1 and replce '\n' to SPACE.
+    Then put data to buffer_2
+    once this detect the input of "STOP", stop reading data.
 ************************************************************************************/
 void *line_separator_thread()
 {
@@ -177,11 +179,15 @@ void *line_separator_thread()
     /* This input store string from buffer_1 */
     char input[SIZE];
     for(int i = 0; i < NUM_ITEMS && !quit; ++i){
-        /* reset imput buffer */
+        /* reset input buffer */
         memset(input, 0, SIZE);
+        /* store data from buffer_1 to input */
         get_buffer_1(input);
+
         /*printf("test2: %s", input);
         fflush(stdout);*/
+
+        /* If input is not "STOP", replce '\n' to SPACE */
         if(strncmp(input, "STOP\n", 5) == 0){
             quit = 1;
         }else{
@@ -190,50 +196,72 @@ void *line_separator_thread()
                 *tmp = ' ';
             }
         }
+        /* store edited data to buffer_2 */
         put_buff_2(input);
     }
 
     return NULL;
 }
+/*
+    This store received data to buffer_2
+    the function that uses buffer_2 is locked until this process is done.
+******************************************************************************/
 void put_buff_2(char *str)
 {
-    // Lock the mutex before putting the item in the buffer
+    /* Lock the mutex before putting the item in the buffer */
     pthread_mutex_lock(&mutex_2);
-    // Put the item in the buffer
+    /* Put the item in the buffer */
     strcpy(buffer_2[prod_idx_2], str);
-    // Increment the index where the next item will be put.
+    /* Increment the index where the next item will be put. */
     ++prod_idx_2;
+    /* Increment the counter */
     ++count_2;
-    // Signal to the consumer that the buffer is no longer empty
+    /* Signal to the consumer that the buffer is no longer empty */
     pthread_cond_signal(&full_2);
-    // Unlock the mutex
+    /* Unlock the mutex */
     pthread_mutex_unlock(&mutex_2);
 }
+/*
+    This function wait the signal of the producer and copy the data from buffer_2 to str
+    function that uses buffer_2 is locked until this process is done.
+***********************************************************************/
 void get_buff_2(char *str)
 {
+    /* Lock the mutex before checking if the buffer has data */
     pthread_mutex_lock(&mutex_2);
-
+    /* Buffer is empty. Wait for the producer to signal that the buffer has data */
     while(count_2 == 0){
         pthread_cond_wait(&full_2, &mutex_2);
     }
+    /* copy input strnig to str */
     strcpy(str, buffer_2[con_idx_2]);
+    /* Increment the index from which the item will be picked up */
     con_idx_2 = con_idx_2 + 1;
+    /* decrease counter */
     count_2--;
-
+    /* Unlock the mutex */
     pthread_mutex_unlock(&mutex_2);
 }
-
+/*
+    This function gets data from buffer_2 and replce '++' to '^'.
+    Then put data to buffer_3
+    once this detect the input of "STOP", stop reading data.
+************************************************************************************/
 void *plus_sign_thread()
 {
     int quit = 0;
     /* This input store string from buffer_2 */
     char input[SIZE];
     for(int i = 0; i < NUM_ITEMS && !quit; ++i){
-        /* reset imput buffer */
+        /* reset input buffer */
         memset(input, 0, SIZE);
+        /* store data from buffer_2 to input */
         get_buff_2(input);
+
         /*printf("test2: %s", input);
         fflush(stdout);*/
+
+        /* if input is not "STOP", replce '++' to '^' */
         if(strncmp(input, "STOP\n", 5) == 0){
             quit = 1;
         }else{
@@ -253,42 +281,57 @@ void *plus_sign_thread()
                 tmp+=strlen(to_this);
             }
         }
+        /* store edited data to buffer_3 */
         put_buff_3(input);
     }
 
     return NULL;
 }
-
+/*
+    This store received data to buffer_3
+    the function that uses buffer_3 is locked until this process is done.
+******************************************************************************/
 void put_buff_3(char *str)
 {
-    // Lock the mutex before putting the item in the buffer
+    /* Lock the mutex before putting the item in the buffer */
     pthread_mutex_lock(&mutex_3);
-    // Put the item in the buffer
+    /* Put the item in the buffer */
     strcpy(buffer_3[prod_idx_3], str);
-    // Increment the index where the next item will be put.
+    /* Increment the index where the next item will be put. */
     ++prod_idx_3;
+    /* Increment the counter */
     ++count_3;
-    // Signal to the consumer that the buffer is no longer empty
+    /* Signal to the consumer that the buffer is no longer empty */
     pthread_cond_signal(&full_3);
-    // Unlock the mutex
-    pthread_mutex_unlock(&mutex_3);
-}
-void get_buff_3(char *str)
-{
-    pthread_mutex_lock(&mutex_3);
-
-    while(count_3 == 0){
-        pthread_cond_wait(&full_3, &mutex_3);
-    }
-    strcpy(str, buffer_3[con_idx_3]);
-    con_idx_3 = con_idx_3 + 1;
-    count_3--;
-
+    /* Unlock the mutex */
     pthread_mutex_unlock(&mutex_3);
 }
 /*
-    buffer_4 stores un-used string
-*************************************************************/
+    This function wait the signal of the producer and copy the data from buffer_3 to str
+    function that uses buffer_3 is locked until this process is done.
+***********************************************************************/
+void get_buff_3(char *str)
+{
+    /* Lock the mutex before checking if the buffer has data */
+    pthread_mutex_lock(&mutex_3);
+    /* Buffer is empty. Wait for the producer to signal that the buffer has data */
+    while(count_3 == 0){
+        pthread_cond_wait(&full_3, &mutex_3);
+    }
+    /* copy input strnig to str */
+    strcpy(str, buffer_3[con_idx_3]);
+    /* Increment the index from which the item will be picked up */
+    con_idx_3 = con_idx_3 + 1;
+    /* decrease counter */
+    count_3--;
+    /* Unlock the mutex */
+    pthread_mutex_unlock(&mutex_3);
+}
+/*
+    This function gets data from buffer_3 and dispaly 80 charactors.
+
+    once this detect the input of "STOP", stop reading data.
+************************************************************************************/
 void *output_thread()
 {
 
@@ -298,9 +341,13 @@ void *output_thread()
 
 
     for(int i = 0; i < NUM_ITEMS && !quit; ++i){
+        /* reset input buffer */
         memset(input, 0, SIZE);
+        /* store data from buffer_3 to input */
         get_buff_3(input);
 
+        /*  if input is not "STOP", store 80 charactors to buffer_4 and display if there
+            are enough charactors */
         if(strncmp(input, "STOP\n", 5) == 0){
             quit = 1;
         }else{
@@ -316,19 +363,22 @@ void *output_thread()
             while(input_size + buff_size >= NUM_DISPLAY ){
                 /* need (NUM_DISPLAY - buff_size) charactors*/
                 int need_chars = NUM_DISPLAY - buff_size;
+                /* combine buffer_4 and input */
                 strncat(buffer_4, p_input, need_chars);
 
+                /* display */
                 printf("%s\n", buffer_4);
                 /* we need to display from stdout stream imadiately */
                 fflush(stdout);
+                /* clearn up buffer_4 */
                 memset(buffer_4, 0, SIZE);
+                /* move to next charactor */
                 p_input+=need_chars;
 
                 input_size = strlen(p_input);
-
                 buff_size = strlen(buffer_4);
-
             }
+            /* store rest of data to buffer_4 */
             strcat(buffer_4, p_input);
 
         }

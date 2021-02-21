@@ -8,7 +8,10 @@
     Here is the links where I checked while I was making Programming memo
 
     reference:
-
+    - for replacing charactor
+    https://mogachan.net/clangmemcpy/
+    and
+    https://programming-place.net/ppp/contents/c/rev_res/string014.html
     an example program from cs344
 
     - for some information

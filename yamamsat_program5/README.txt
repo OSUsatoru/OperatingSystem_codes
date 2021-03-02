@@ -1,0 +1,1 @@
+gcc --std=gnu99 -o keygen keygen.c

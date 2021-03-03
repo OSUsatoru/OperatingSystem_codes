@@ -1,0 +1,8 @@
+#include <netdb.h>
+struct hostent {
+    char  *h_name;            /* official name of host */
+    char **h_aliases;         /* an array of alternate names, terminated by a null pointer */
+    int    h_addrtype;        /* host address type. One of AF_INET or AF_INET6 at present. */
+    int    h_length;          /* length of address */
+    char **h_addr_list;       /* an array of addresses, terminated by a null pointer */
+}

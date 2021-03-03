@@ -5,20 +5,7 @@
     NOTE: I avoid to use single-line comment because this was created in cpp
     If I remember correctly, some of old compiler display error message for this.
 
-    Here is the links where I checked while I was making Programming memo
-
-    reference:
-
-    - for some information
-    cs344 Explorations
-
 **********************************************************************************************/
-/*
-    memo
-    it will be using modulo 27 operations: caputal letters and space
-
-
-******************************************************/
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -28,9 +15,7 @@
 /*  This store the characters for key
 strlen(key_characters) = 27
 key = key_characters[ rand() % strlen(key_characters) ];
-*/
-
-
+***********************************************************/
 char key_characters[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ ";
 
 void Generate_key(int length, char *str);
@@ -44,7 +29,7 @@ int main(int argc, char *argv[])
 {
     /* If there is not enough argument */
     if(argc < 2){
-        perror("You must provide the length of key\n");
+        fprintf(stderr,"USAGE: %s keylength\n", argv[0]);
         return EXIT_FAILURE;
     }
 
@@ -59,7 +44,7 @@ int main(int argc, char *argv[])
     Generate_key(key_length, key_string);
 
     /* output to stdout */
-    printf("%s\n", key_string);
+    fprintf(stdout,"%s\n", key_string);
     fflush(stdout);
 
     return EXIT_SUCCESS;

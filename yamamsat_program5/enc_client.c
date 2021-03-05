@@ -150,31 +150,31 @@ void Is_Valid_Files(const char *text, const char *key)
     fclose(text_file);
     fclose(key_file);
     /* Updata size of file */
-    text_size = strlen(text_buffer)-1;
-    key_size = strlen(key_buffer)-1;
+    text_size = strlen(text_buffer);
+    key_size = strlen(key_buffer);
 
     if(text_size > key_size){
         fprintf(stderr,"Error: key '%s' is too short\n", key);
         exit(1);
     }
 
-    /* Replace '\n' to NULL character */
-    text_buffer[strlen(text_buffer)] = '\0';
-    key_buffer[strlen(key_buffer)] = '\0';
+    /* Replace '\n' to NULL character
+    text_buffer[text_size] = '\0';
+    key_buffer[key_size] = '\0';*/
     //printf("%s:%d\n", text_buffer, text_size);
     //printf("%s:%d\n", key_buffer, key_size);
 
     /*
         This is not efficient though
     ************************************************/
-    for(int i = 0; i < text_size; ++i){
+    for(int i = 0; i < text_size-1; ++i){
         /* If text has a bad character */
         if(strchr(key_characters, text_buffer[i]) == NULL){
             fprintf(stderr,"Error: '%s' has a bad character\n", text);
             exit(1);
         }
     }
-    for(int i = 0; i < key_size; ++i){
+    for(int i = 0; i < key_size-1; ++i){
         /* If key has a bad character */
         if(strchr(key_characters, key_buffer[i]) == NULL){
             fprintf(stderr,"Error: '%s' has a bad character\n", key);
@@ -216,21 +216,21 @@ void setupAddressStruct(struct sockaddr_in* address, int portNumber){
 int initial_contact(int socketFD)
 {
     /* buffer will reseive the character and '\0' from server */
-    char buffer[2];
+    int respons;
     char name[] = "enc_client\0";
-    if(send(socketFD, name, strlen(name)+1, 0) < 0){
+    if(send(socketFD, name, strlen(name), 0) < 0){
         fprintf(stderr, "Client: Error Faild to send an initial message to server\n");
         exit(2);
     }
 
-    if(recv(socketFD, buffer, 1, 0) < 0){
+    if(recv(socketFD, &respons, sizeof(respons), 0) < 0){
         fprintf(stderr, "Client: Errir Faild to receive an initial message from server\n");
         exit(2);
     }
-    fprintf(stdout, "test on client: %s\n", buffer);
+    fprintf(stdout, "test on client: %d\n", respons);
     fflush(stdout);
 
-    return atoi(buffer);
+    return respons;
 }
 /*
     This will send the string information to server.
@@ -239,11 +239,18 @@ int initial_contact(int socketFD)
 **********************************************************/
 void send_text_msg(int socketFD)
 {
-
-    if(send(socketFD, text_buffer, strlen(text_buffer)+1, 0) < 0){
+    if(send(socketFD, &text_size, sizeof(text_size), 0) < 0){
         fprintf(stderr, "Client: Error Faild to send an initial message to server\n");
         exit(2);
     }
+    fprintf(stdout, "stelen: %d\n", strlen(text_buffer));
+    fflush(stdout);
+
+    if(send(socketFD, text_buffer, text_size, 0) < 0){
+        fprintf(stderr, "Client: Error Faild to send an initial message to server\n");
+        exit(2);
+    }
+
 }
 void send_key_msg(int socketFD)
 {

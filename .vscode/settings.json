@@ -6,6 +6,8 @@
         "string_view": "c",
         "stat.h": "c",
         "functional": "c",
-        "stdio.h": "c"
+        "stdio.h": "c",
+        "typeindex": "c",
+        "typeinfo": "c"
     }
 }

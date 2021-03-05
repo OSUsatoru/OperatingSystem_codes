@@ -1,0 +1,15 @@
+#!/bin/bash
+gcc --std=gnu99 -o enc_server enc_server.c
+gcc --std=gnu99 -o enc_client enc_client.c
+
+killall -q -u $USER dec_client
+killall -q -u $USER dec_server
+killall -q -u $USER enc_client
+killall -q -u $USER enc_server
+
+${echo}
+${echo} '#-----------------------------------------'
+${echo} '#START OF GRADING SCRIPT'
+./enc_server 3000 &
+./enc_client key10 key20 3000
+

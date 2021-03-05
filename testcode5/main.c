@@ -114,6 +114,7 @@ void Is_Valid_Files(const char *text, const char *key)
 
 void to_encrypt()
 {
+    /* Do not need to check the last null character */
     for(int i = 0; i < text_size; ++i){
         int text_index = strchr(key_characters,text_buffer[i]) - key_characters, key_index = strchr(key_characters,key_buffer[i]) - key_characters;
         text_buffer[i] = key_characters[(text_index + key_index) % strlen(key_characters)];
@@ -121,6 +122,7 @@ void to_encrypt()
 }
 void to_decrypt()
 {
+    /* Do not need to check the last null character */
     for(int i = 0; i < text_size; ++i){
         int text_index = strchr(key_characters,text_buffer[i]) - key_characters, key_index = strchr(key_characters,key_buffer[i]) - key_characters;
         text_buffer[i] = key_characters[( strlen(key_characters) + text_index - key_index) % strlen(key_characters)];

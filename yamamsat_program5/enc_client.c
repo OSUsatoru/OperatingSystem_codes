@@ -26,16 +26,19 @@
 #include <netdb.h>
 
 char key_characters[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ ";
+
 char *text_buffer;
 char *key_buffer;
+
 /* Eventually this size does not include NULL character */
 unsigned long text_size, key_size;
 
 void Is_Valid_Files(const char *text, const char *key);
 void setupAddressStruct(struct sockaddr_in* address, int portNumber);
-int initial_contact();
-void send_msg();
-void receive_msg();
+int initial_contact(int socketFD);
+void send_text_msg(int socketFD);
+void send_key_msg(int socketFD);
+void receive_msg(int socketFD);
 /*
     argv[1]: plain text
     argv[2]: key test
@@ -45,7 +48,8 @@ int main(int argc, char *argv[]) {
 
     int socketFD, portNumber, charsWritten, charsRead;
     struct sockaddr_in serverAddress;
-    char buffer[256];
+
+
 
     /* if there is no enogut arguments */
     if (argc < 4) {
@@ -74,39 +78,26 @@ int main(int argc, char *argv[]) {
         fprintf(stderr,"CLIENT: ERROR connecting");
         exit(1);
     }
-    /*
-    // Get input message from user
-    printf("CLIENT: Enter text to send to the server, and then hit enter: ");
-    // Clear out the buffer array
-    memset(buffer, '\0', sizeof(buffer));
-    // Get input from the user, trunc to buffer - 1 chars, leaving \0
-    fgets(buffer, sizeof(buffer) - 1, stdin);
-    // Remove the trailing \n that fgets adds
-    buffer[strcspn(buffer, "\n")] = '\0';
-    */
+    /* First contact to see if it connects correct server */
 
-    // Send message to server
-    // Write to the server
-    fprintf(stdout,"CLIENT: size of file: %d\n", key_size);
+    if(initial_contact(socketFD) == 0){
+        fprintf(stderr,"CLIENT: ERROR Connection is rejected by server.");
+        exit(2);
+    }
+    fprintf(stdout, "%s\n", key_buffer );
+    fprintf(stdout, "%s\n", text_buffer);
+
+    fprintf(stdout, "%d\n", key_size );
+    fprintf(stdout, "%d\n", text_size);
     fflush(stdout);
-    charsWritten = send(socketFD, key_buffer, key_size+1, 0);
-    if (charsWritten < 0){
-        fprintf(stderr,"CLIENT: ERROR writing to socket");
-    }
-    if (charsWritten < key_size+1){
-        fprintf(stderr,"CLIENT: WARNING: Not all data written to socket!\n");
-    }
 
-    // Get return message from server
-    // Clear out the buffer again for reuse
-    //memset(buffer, '\0', sizeof(buffer));
-    // Read data from the socket, leaving \0 at end
+    /* send text_buffer */
+    send_text_msg(socketFD);
+    /* send key_buffer */
+    //send_key_msg(socketFD);
 
-    charsRead = recv(socketFD, buffer, sizeof(buffer) - 1, 0);
-    if (charsRead < 0){
-        fprintf(stderr,"CLIENT: ERROR reading from socket");
-    }
-    fprintf(stdout,"CLIENT: I received this from the server: \"%s\"\n", buffer);
+    /* receive message form server */
+    receive_msg(socketFD);
 
     // Close the socket
     close(socketFD);
@@ -133,7 +124,7 @@ void Is_Valid_Files(const char *text, const char *key)
     text_size = text_Stat.st_size;
     key_size = key_Stat.st_size;
 
-    //printf("%d\n%d\n", text_size, key_size);
+    //printf("%d\n%d\n", *text_size, key_size);
 
 
     /* open files */
@@ -191,7 +182,6 @@ void Is_Valid_Files(const char *text, const char *key)
         }
     }
 
-
 }
 
 /* Set up the address struct
@@ -223,16 +213,49 @@ void setupAddressStruct(struct sockaddr_in* address, int portNumber){
     1 for valid
     0 for invalid connect
 **********************************************************/
-int initial_contact();
+int initial_contact(int socketFD)
+{
+    /* buffer will reseive the character and '\0' from server */
+    char buffer[2];
+    char name[] = "enc_client\0";
+    if(send(socketFD, name, strlen(name)+1, 0) < 0){
+        fprintf(stderr, "Client: Error Faild to send an initial message to server\n");
+        exit(2);
+    }
+
+    if(recv(socketFD, buffer, 1, 0) < 0){
+        fprintf(stderr, "Client: Errir Faild to receive an initial message from server\n");
+        exit(2);
+    }
+    fprintf(stdout, "test on client: %s\n", buffer);
+    fflush(stdout);
+
+    return atoi(buffer);
+}
 /*
     This will send the string information to server.
     first: send the size of data
     second: send the string data
 **********************************************************/
-void send_msg();
+void send_text_msg(int socketFD)
+{
+
+    if(send(socketFD, text_buffer, strlen(text_buffer)+1, 0) < 0){
+        fprintf(stderr, "Client: Error Faild to send an initial message to server\n");
+        exit(2);
+    }
+}
+void send_key_msg(int socketFD)
+{
+
+
+}
 /*
     This will receive the string data from server
     first: receive the size of data
     second: receive the string data
 ********************************************************/
-void receive_msg();
+void receive_msg(int socketFD)
+{
+
+}

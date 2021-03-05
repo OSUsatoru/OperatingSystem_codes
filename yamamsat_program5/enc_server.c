@@ -19,15 +19,10 @@
 #include <netinet/in.h>
 
 void setupAddressStruct(struct sockaddr_in* address, int portNumber);
-void initial_contact();
-void send_msg();
-void receive_msg();
-// Error function used for reporting issues
-void error(const char *msg) {
-  perror(msg);
-  exit(1);
-}
-
+int initial_contact(int connectionSocket);
+void send_msg(int connectionSocket);
+void receive_text_msg(int connectionSocket);
+void receive_key_msg(int connectionSocket);
 
 int main(int argc, char *argv[]){
     int connectionSocket, charsRead;
@@ -52,9 +47,7 @@ int main(int argc, char *argv[]){
     setupAddressStruct(&serverAddress, atoi(argv[1]));
 
     // Associate the socket to the port
-    if (bind(listenSocket,
-            (struct sockaddr *)&serverAddress,
-            sizeof(serverAddress)) < 0){
+    if (bind(listenSocket, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0){
         fprintf(stderr, "ERROR on binding");
         exit(1);
     }
@@ -62,38 +55,45 @@ int main(int argc, char *argv[]){
     // Start listening for connetions. Allow up to 5 connections to queue up
     listen(listenSocket, 5);
 
+
+
+
     // Accept a connection, blocking if one is not available until one connects
     while(1){
         // Accept the connection request which creates a connection socket
-        connectionSocket = accept(listenSocket,
-                    (struct sockaddr *)&clientAddress,
-                    &sizeOfClientInfo);
+        connectionSocket = accept(listenSocket, (struct sockaddr *)&clientAddress, &sizeOfClientInfo);
         if (connectionSocket < 0){
-        fprintf(stderr, "ERROR on accept");
-        exit(1);
+            fprintf(stderr, "ERROR on accept");
+            exit(1);
         }
 
-        printf("SERVER: Connected to client running at host %d port %d\n",
-                            ntohs(clientAddress.sin_addr.s_addr),
-                            ntohs(clientAddress.sin_port));
+        printf("SERVER: Connected to client running at host %d port %d\n",ntohs(clientAddress.sin_addr.s_addr), ntohs(clientAddress.sin_port));
 
+        if(initial_contact(connectionSocket) == 0){
+            close(connectionSocket);
+            exit(2);
+        }
+
+        receive_text_msg(connectionSocket);
+
+        /*
         // Get the message from the client and display it
         memset(buffer, '\0', 256);
         // Read the client's message from the socket
         charsRead = recv(connectionSocket, buffer, 255, 0);
         if (charsRead < 0){
-        fprintf(stderr, "ERROR reading from socket");
-        exit(1);
+            fprintf(stderr, "ERROR reading from socket");
+            exit(1);
         }
         printf("SERVER: I received this from the client: \"%s\"\n", buffer);
 
         // Send a Success message back to the client
-        charsRead = send(connectionSocket,
-                        "I am the server, and I got your message", 39, 0);
+        charsRead = send(connectionSocket, "I am the server, and I got your message", 39, 0);
         if (charsRead < 0){
-        fprintf(stderr, "ERROR writing to socket");
-        exit(1);
+            fprintf(stderr, "ERROR writing to socket");
+            exit(1);
         }
+        */
         // Close the connection socket for this client
         close(connectionSocket);
     }
@@ -121,16 +121,60 @@ void setupAddressStruct(struct sockaddr_in* address, int portNumber){
     1 for valid
     0 for invalid connect
 **********************************************************/
-int initial_contact();
+int initial_contact(int connectionSocket)
+{
+    char recv_name[256];
+    char reply[2];
+    if(recv(connectionSocket, recv_name, 255, 0) < 0){
+        fprintf(stderr, "Server: Error Faild to receive an initial message from client\n");
+        exit(1);
+    }
+    fprintf(stdout, "test on server: %s\n", recv_name);
+    fflush(stdout);
+    if(strcmp(recv_name, "enc_client\0") == 0){
+        reply[0] = '1';
+    }else{
+        reply[0] = '0';
+    }
+    fprintf(stdout, "test on server: %s\n", reply);
+    fflush(stdout);
+    if(send(connectionSocket, reply, 2, 0) < 0){
+        fprintf(stderr, "Server: Error Faild to send an initial message to server\n");
+        exit(1);
+    }
+    return atoi(reply);
+}
 /*
     This will send the string information to server.
     first: send the size of data
     second: send the string data
 **********************************************************/
-void send_msg();
+void send_msg(int connectionSocket)
+{
+
+}
 /*
     This will receive the string data from server
     first: receive the size of data
     second: receive the string data
 ********************************************************/
-void receive_msg();
+void receive_text_msg(int connectionSocket)
+{
+    char buffer[256];
+    int check;
+    while( check = recv(connectionSocket, buffer, 255, 0) > 0){
+        if ( check < 0){
+            fprintf(stderr, "ERROR reading from socket");
+            exit(1);
+        }
+
+        fprintf(stdout, "test1 on server: %s\n", buffer);
+        fflush(stdout);
+    }
+
+
+}
+void receive_key_msg(int connectionSocket)
+{
+
+}

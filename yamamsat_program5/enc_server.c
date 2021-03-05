@@ -18,26 +18,16 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
+void setupAddressStruct(struct sockaddr_in* address, int portNumber);
+void initial_contact();
+void send_msg();
+void receive_msg();
 // Error function used for reporting issues
 void error(const char *msg) {
   perror(msg);
   exit(1);
 }
 
-// Set up the address struct for the server socket
-void setupAddressStruct(struct sockaddr_in* address,
-                        int portNumber){
-
-  // Clear out the address struct
-  memset((char*) address, '\0', sizeof(*address));
-
-  // The address should be network capable
-  address->sin_family = AF_INET;
-  // Store the port number
-  address->sin_port = htons(portNumber);
-  // Allow a client at any address to connect to this server
-  address->sin_addr.s_addr = INADDR_ANY;
-}
 
 int main(int argc, char *argv[]){
     int connectionSocket, charsRead;
@@ -54,7 +44,8 @@ int main(int argc, char *argv[]){
     // Create the socket that will listen for connections
     int listenSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (listenSocket < 0) {
-        error("ERROR opening socket");
+        fprintf(stderr, "ERROR opening socket");
+        exit(1);
     }
 
     // Set up the address struct for the server socket
@@ -64,7 +55,8 @@ int main(int argc, char *argv[]){
     if (bind(listenSocket,
             (struct sockaddr *)&serverAddress,
             sizeof(serverAddress)) < 0){
-        error("ERROR on binding");
+        fprintf(stderr, "ERROR on binding");
+        exit(1);
     }
 
     // Start listening for connetions. Allow up to 5 connections to queue up
@@ -77,7 +69,8 @@ int main(int argc, char *argv[]){
                     (struct sockaddr *)&clientAddress,
                     &sizeOfClientInfo);
         if (connectionSocket < 0){
-        error("ERROR on accept");
+        fprintf(stderr, "ERROR on accept");
+        exit(1);
         }
 
         printf("SERVER: Connected to client running at host %d port %d\n",
@@ -89,7 +82,8 @@ int main(int argc, char *argv[]){
         // Read the client's message from the socket
         charsRead = recv(connectionSocket, buffer, 255, 0);
         if (charsRead < 0){
-        error("ERROR reading from socket");
+        fprintf(stderr, "ERROR reading from socket");
+        exit(1);
         }
         printf("SERVER: I received this from the client: \"%s\"\n", buffer);
 
@@ -97,7 +91,8 @@ int main(int argc, char *argv[]){
         charsRead = send(connectionSocket,
                         "I am the server, and I got your message", 39, 0);
         if (charsRead < 0){
-        error("ERROR writing to socket");
+        fprintf(stderr, "ERROR writing to socket");
+        exit(1);
         }
         // Close the connection socket for this client
         close(connectionSocket);
@@ -106,3 +101,36 @@ int main(int argc, char *argv[]){
     close(listenSocket);
     return 0;
 }
+
+
+// Set up the address struct for the server socket
+void setupAddressStruct(struct sockaddr_in* address, int portNumber){
+  // Clear out the address struct
+  memset((char*) address, '\0', sizeof(*address));
+
+  // The address should be network capable
+  address->sin_family = AF_INET;
+  // Store the port number
+  address->sin_port = htons(portNumber);
+  // Allow a client at any address to connect to this server
+  address->sin_addr.s_addr = INADDR_ANY;
+}
+/*
+    This will receive program name from client and send the response
+    to client
+    1 for valid
+    0 for invalid connect
+**********************************************************/
+int initial_contact();
+/*
+    This will send the string information to server.
+    first: send the size of data
+    second: send the string data
+**********************************************************/
+void send_msg();
+/*
+    This will receive the string data from server
+    first: receive the size of data
+    second: receive the string data
+********************************************************/
+void receive_msg();

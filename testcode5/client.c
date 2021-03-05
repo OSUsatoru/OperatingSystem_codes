@@ -39,9 +39,7 @@ void setupAddressStruct(struct sockaddr_in* address,
     exit(0);
   }
   // Copy the first IP address from the DNS entry to sin_addr.s_addr
-  memcpy((char*) &address->sin_addr.s_addr,
-        hostInfo->h_addr_list[0],
-        hostInfo->h_length);
+  memcpy((char*) &address->sin_addr.s_addr, hostInfo->h_addr_list[0], hostInfo->h_length);
 }
 
 int main(int argc, char *argv[]) {

@@ -7,8 +7,13 @@
 #include <sys/stat.h>
 
 char key_characters[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ ";
+char *text_buffer;
+char *key_buffer;
+unsigned long text_size, key_size;
 
 void Is_Valid_Files(const char *text, const char *key);
+void to_encrypt();
+void to_decrypt();
 /*
     argv[1]: plain text
     argv[2]: key test
@@ -17,6 +22,12 @@ void Is_Valid_Files(const char *text, const char *key);
 int main(int argc, char *argv[])
 {
     Is_Valid_Files(argv[1], argv[2]);
+
+    to_encrypt();
+    fprintf(stdout,"result1: %s\n", text_buffer);
+    to_decrypt();
+
+    fprintf(stdout,"result2: %s\n", text_buffer);
     return 0;
 }
 /*
@@ -37,9 +48,10 @@ void Is_Valid_Files(const char *text, const char *key)
         there might be difference between this size and strlen(text),
         but this size is always size >= strlen(text)
     *********************************************************************/
-    unsigned long text_size = text_Stat.st_size, key_size = key_Stat.st_size;
+    text_size = text_Stat.st_size;
+    key_size = key_Stat.st_size;
 
-    printf("%d\n%d\n", text_size, key_size);
+    //printf("%d\n%d\n", text_size, key_size);
 
 
     /* open files */
@@ -56,8 +68,8 @@ void Is_Valid_Files(const char *text, const char *key)
     }
 
     /* Allocate memory by using size of file*/
-    char *text_buffer = malloc(text_size);
-    char *key_buffer = malloc(key_size);
+    text_buffer = malloc(text_size);
+    key_buffer = malloc(key_size);
     /* Store string including '\n' */
     fgets(text_buffer, text_size, text_file);
     fgets(key_buffer, key_size, key_file);
@@ -69,9 +81,6 @@ void Is_Valid_Files(const char *text, const char *key)
     key_size = strlen(key_buffer)-1;
 
     if(text_size > key_size){
-        /* free the memory and return 0*/
-        free(text_buffer);
-        free(key_buffer);
         fprintf(stderr,"Error: key '%s' is too short\n", key);
         exit(1);
     }
@@ -79,8 +88,8 @@ void Is_Valid_Files(const char *text, const char *key)
     /* Replace '\n' to NULL character */
     text_buffer[strlen(text_buffer)] = '\0';
     key_buffer[strlen(key_buffer)] = '\0';
-    printf("%s:%d\n", text_buffer, text_size);
-    printf("%s:%d\n", key_buffer, key_size);
+    //printf("%s:%d\n", text_buffer, text_size);
+    //printf("%s:%d\n", key_buffer, key_size);
 
     /*
         This is not efficient though
@@ -88,9 +97,6 @@ void Is_Valid_Files(const char *text, const char *key)
     for(int i = 0; i < text_size; ++i){
         /* If text has a bad character */
         if(strchr(key_characters, text_buffer[i]) == NULL){
-            /* free the memory and return 0*/
-            free(text_buffer);
-            free(key_buffer);
             fprintf(stderr,"Error: '%s' has a bad character\n", text);
             exit(1);
         }
@@ -98,16 +104,25 @@ void Is_Valid_Files(const char *text, const char *key)
     for(int i = 0; i < key_size; ++i){
         /* If key has a bad character */
         if(strchr(key_characters, key_buffer[i]) == NULL){
-            /* free the memory and return 0*/
-            free(text_buffer);
-            free(key_buffer);
             fprintf(stderr,"Error: '%s' has a bad character\n", key);
             exit(1);
         }
     }
 
-    /* free the memory and return 0*/
-    free(text_buffer);
-    free(key_buffer);
 
+}
+
+void to_encrypt()
+{
+    for(int i = 0; i < text_size; ++i){
+        int text_index = strchr(key_characters,text_buffer[i]) - key_characters, key_index = strchr(key_characters,key_buffer[i]) - key_characters;
+        text_buffer[i] = key_characters[(text_index + key_index) % strlen(key_characters)];
+    }
+}
+void to_decrypt()
+{
+    for(int i = 0; i < text_size; ++i){
+        int text_index = strchr(key_characters,text_buffer[i]) - key_characters, key_index = strchr(key_characters,key_buffer[i]) - key_characters;
+        text_buffer[i] = key_characters[( strlen(key_characters) + text_index - key_index) % strlen(key_characters)];
+    }
 }

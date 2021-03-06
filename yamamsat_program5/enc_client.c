@@ -31,7 +31,7 @@ char *text_buffer;
 char *key_buffer;
 
 /* Eventually this size does not include NULL character */
-unsigned long text_size, key_size;
+int text_size, key_size;
 
 void Is_Valid_Files(const char *text, const char *key);
 void setupAddressStruct(struct sockaddr_in* address, int portNumber);
@@ -84,17 +84,18 @@ int main(int argc, char *argv[]) {
         fprintf(stderr,"CLIENT: ERROR Connection is rejected by server.");
         exit(2);
     }
-    fprintf(stdout, "%s\n", key_buffer );
     fprintf(stdout, "%s\n", text_buffer);
+    fprintf(stdout, "%s\n", key_buffer );
 
-    fprintf(stdout, "%d\n", key_size );
     fprintf(stdout, "%d\n", text_size);
+    fprintf(stdout, "%d\n", key_size );
+
     fflush(stdout);
 
     /* send text_buffer */
     send_text_msg(socketFD);
     /* send key_buffer */
-    //send_key_msg(socketFD);
+    send_key_msg(socketFD);
 
     /* receive message form server */
     receive_msg(socketFD);
@@ -243,8 +244,9 @@ void send_text_msg(int socketFD)
         fprintf(stderr, "Client: Error Faild to send an initial message to server\n");
         exit(2);
     }
-    fprintf(stdout, "stelen: %d\n", strlen(text_buffer));
+    fprintf(stdout, "strlen: %d\n", strlen(text_buffer));
     fflush(stdout);
+
 
     if(send(socketFD, text_buffer, text_size, 0) < 0){
         fprintf(stderr, "Client: Error Faild to send an initial message to server\n");
@@ -255,7 +257,17 @@ void send_text_msg(int socketFD)
 void send_key_msg(int socketFD)
 {
 
+    if(send(socketFD, &key_size, sizeof(key_size), 0) < 0){
+        fprintf(stderr, "Client: Error Faild to send an initial message to server\n");
+        exit(2);
+    }
+    fprintf(stdout, "strlen: %d\n", strlen(key_buffer));
+    fflush(stdout);
 
+    if(send(socketFD, key_buffer, key_size, 0) < 0){
+        fprintf(stderr, "Client: Error Faild to send an initial message to server\n");
+        exit(2);
+    }
 }
 /*
     This will receive the string data from server
@@ -266,3 +278,7 @@ void receive_msg(int socketFD)
 {
 
 }
+
+/*  make a one string data
+    send that
+*/

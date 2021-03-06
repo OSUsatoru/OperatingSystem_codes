@@ -19,6 +19,7 @@
 #include <netinet/in.h>
 
 void setupAddressStruct(struct sockaddr_in* address, int portNumber);
+void childProcess(int connectionSocket);
 int initial_contact(int connectionSocket);
 void send_msg(int connectionSocket);
 void receive_text_msg(int connectionSocket);
@@ -65,14 +66,24 @@ int main(int argc, char *argv[]){
         }
 
         printf("SERVER: Connected to client running at host %d port %d\n",ntohs(clientAddress.sin_addr.s_addr), ntohs(clientAddress.sin_port));
+        pid_t spawnPid;
 
-        if(initial_contact(connectionSocket) == 0){
-            close(connectionSocket);
-            exit(2);
+        spawnPid = fork();
+
+        switch(spawnPid){
+            case -1:
+                fprintf(stderr, "Server: Error fork() failed\n");
+                exit(1);
+                break;
+            case 0: /* This is on child process */
+                childProcess(connectionSocket);
+                close(connectionSocket);
+                exit(0);
+                break;
+            default:
+                break;
         }
 
-        receive_text_msg(connectionSocket);
-        // Close the connection socket for this client
         close(connectionSocket);
     }
     // Close the listening socket
@@ -99,6 +110,17 @@ void setupAddressStruct(struct sockaddr_in* address, int portNumber){
     1 for valid
     0 for invalid connect
 **********************************************************/
+void childProcess(int connectionSocket)
+{
+    if(initial_contact(connectionSocket) == 0){
+        close(connectionSocket);
+        exit(2);
+    }
+
+    receive_text_msg(connectionSocket);
+    receive_key_msg(connectionSocket);
+    // Close the connection socket for this client
+}
 int initial_contact(int connectionSocket)
 {
     char recv_name[256];
@@ -142,7 +164,8 @@ void send_msg(int connectionSocket)
 void receive_text_msg(int connectionSocket)
 {
     char *text_buffer;
-    int text_length, total_received, received, length;
+    int text_length, total_received = 0, received, index = 0;
+
     if(recv(connectionSocket, &text_length, sizeof(text_length), 0) < 0){
         fprintf(stderr, "ERROR reading from socket");
         exit(1);
@@ -150,62 +173,74 @@ void receive_text_msg(int connectionSocket)
     fprintf(stdout, "Server: text length: %d\n", text_length);
     fflush(stdout);
 
-    length = text_length;
-    total_received = 0;
 
-    //text_buffer = calloc(text_length+1, sizeof(char));
-    //memset(text_buffer, '\0', text_length+1);
+    text_buffer = (char *)calloc(text_length+1, sizeof(char));
+    memset(text_buffer, '\0', text_length+1);
 
-    char *tmp;
-    int cnt = 0;
-    while( (received = recv(connectionSocket, tmp+total_received, length-total_received, 0)) > 0){
-        total_received += received;
-    }
-    /*
-    while(1){
-        if( (received = recv(connectionSocket, tmp, 1, 0)) < 0){
-            fprintf(stderr, "ERROR reading from socket");
-            exit(1);
-        }else if(*tmp == '\n'){
-            break;
+    int is_done = 0;
+    int data_size;
+
+    while(!is_done){
+        if(text_length-total_received >= 1000){
+            data_size = 1000;
+        }else{
+            data_size = text_length-total_received;
         }
-        putchar(*tmp);
-        text_buffer[cnt++] = *tmp;
-    }
-    */
-    fprintf(stdout,"Server: %s\n", text_buffer);
-    fflush(stdout);
-
-    //int received = recv(connectionSocket, text_buffer,text_length,0);
-    /*
-    while((total_received > 0) && (received = recv(connectionSocket, tmp, total_received,0))){
+        received = recv(connectionSocket, text_buffer+index, data_size, 0);
         if(received<0){
            fprintf(stderr, "ERROR reading from socket");
            exit(1);
         }
-        tmp+=received;
-        total_received-=received;
-    }
-    */
-    /*
-    do{
-        received = recv(connectionSocket, text_buffer+total_received,text_length-total_received,0);
-        if(received<0){
-           fprintf(stderr, "ERROR reading from socket");
-           exit(1);
-        }
-
         total_received+=received;
-        fprintf(stdout,"Server: received %d\n total %d\n", received, total_received);
+        if(total_received >= text_length){
+            is_done = 1;
+        }
+        index+=received;
+        fprintf(stdout, "Server: received %d\n", received);
         fflush(stdout);
-
-    }while((received > 0) && (total_received < text_length));
-    */
-    fprintf(stdout,"Server: %s\n", text_buffer);
+    }
+    fprintf(stdout,"Server: text\n %s\n", text_buffer);
     fflush(stdout);
-
 }
 void receive_key_msg(int connectionSocket)
 {
+    char *key_buffer;
+    int key_length, total_received = 0, received, index = 0;
 
+    if(recv(connectionSocket, &key_length, sizeof(key_length), 0) < 0){
+        fprintf(stderr, "ERROR reading from socket");
+        exit(1);
+    }
+    fprintf(stdout, "Server: key length: %d\n", key_length);
+    fflush(stdout);
+
+
+
+    key_buffer = (char *)calloc(key_length+1, sizeof(char));
+    memset(key_buffer, '\0', key_length+1);
+
+    int is_done = 0;
+    int data_size;
+
+    while(!is_done){
+        if(key_length-total_received >= 1000){
+            data_size = 1000;
+        }else{
+            data_size = key_length-total_received;
+        }
+        received = recv(connectionSocket, key_buffer+index, data_size, 0);
+        if(received<0){
+           fprintf(stderr, "ERROR reading from socket");
+           exit(1);
+        }
+        total_received+=received;
+        if(total_received >= key_length){
+            is_done = 1;
+        }
+        index+=received;
+        fprintf(stdout, "Server: received %d\n", received);
+        fflush(stdout);
+    }
+    fprintf(stdout,"Server: key\n %s\n", key_buffer);
+    fflush(stdout);
 }

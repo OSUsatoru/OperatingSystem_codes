@@ -21,6 +21,7 @@ void to_decrypt();
 **************************************************/
 int main(int argc, char *argv[])
 {
+    /*
     Is_Valid_Files(argv[1], argv[2]);
 
     to_encrypt();
@@ -28,6 +29,9 @@ int main(int argc, char *argv[])
     to_decrypt();
 
     fprintf(stdout,"result2: %s\n", text_buffer);
+    */
+    char test[] = "ABCDEFGHIJ\n";
+    printf("%d",strlen(test));
     return 0;
 }
 /*

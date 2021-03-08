@@ -25,7 +25,7 @@ void setupAddressStruct(struct sockaddr_in* address, int portNumber);
 void childProcess(int connectionSocket);
 void to_decrypt();
 int initial_contact(int connectionSocket);
-void send_msg(int connectionSocket);
+void send_result(int connectionSocket);
 void receive_text_msg(int connectionSocket);
 void receive_key_msg(int connectionSocket);
 
@@ -43,8 +43,8 @@ int main(int argc, char *argv[]){
     // Create the socket that will listen for connections
     int listenSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (listenSocket < 0) {
-        fprintf(stderr, "ERROR opening socket");
-        exit(1);
+        fprintf(stderr, "Server: ERROR opening socket");
+        exit(2);
     }
 
     // Set up the address struct for the server socket
@@ -52,8 +52,8 @@ int main(int argc, char *argv[]){
 
     // Associate the socket to the port
     if (bind(listenSocket, (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0){
-        fprintf(stderr, "ERROR on binding");
-        exit(1);
+        fprintf(stderr, "Server: ERROR on binding\n");
+        exit(2);
     }
 
     // Start listening for connetions. Allow up to 5 connections to queue up
@@ -65,11 +65,13 @@ int main(int argc, char *argv[]){
         // Accept the connection request which creates a connection socket
         connectionSocket = accept(listenSocket, (struct sockaddr *)&clientAddress, &sizeOfClientInfo);
         if (connectionSocket < 0){
-            fprintf(stderr, "ERROR on accept");
-            exit(1);
+            fprintf(stderr, "Server: ERROR on accept\n");
+            exit(2);
         }
-
+        /*
         printf("SERVER: Connected to client running at host %d port %d\n",ntohs(clientAddress.sin_addr.s_addr), ntohs(clientAddress.sin_port));
+        */
+
         pid_t spawnPid;
 
         spawnPid = fork();
@@ -80,7 +82,9 @@ int main(int argc, char *argv[]){
                 exit(1);
                 break;
             case 0: /* This is on child process */
+                close(listenSocket);
                 childProcess(connectionSocket);
+                // Close the connection socket for this client
                 close(connectionSocket);
                 exit(0);
                 break;
@@ -123,14 +127,19 @@ void childProcess(int connectionSocket)
 
     receive_text_msg(connectionSocket);
     receive_key_msg(connectionSocket);
+    /*
     fprintf(stdout, "Server: text\n%s\n", text_buffer);
     fprintf(stdout, "Server: key\n%s\n", key_buffer);
+    fprintf(stdout, "tested\n");
     fflush(stdout);
+    */
     to_decrypt();
-
-
+    send_result(connectionSocket);
+    /*
+    fprintf(stdout, "tested\n");
     fflush(stdout);
-    // Close the connection socket for this client
+    */
+
 }
 int initial_contact(int connectionSocket)
 {
@@ -140,21 +149,24 @@ int initial_contact(int connectionSocket)
 
     if(recv(connectionSocket, recv_name, 255, 0) < 0){
         fprintf(stderr, "Server: Error Faild to receive an initial message from client\n");
-        exit(1);
+        exit(2);
     }
+    /*
     fprintf(stdout, "test on server: %s\n", recv_name);
     fflush(stdout);
+    */
     if(strcmp(recv_name, "dec_client\0") == 0){
         reply = 1;
     }else{
         reply = 0;
     }
+    /*
     fprintf(stdout, "test on server: %d\n", reply);
     fflush(stdout);
-
+    */
     if(send(connectionSocket, &reply, sizeof(reply), 0) < 0){
-        fprintf(stderr, "Server: Error Faild to send an initial message to server\n");
-        exit(1);
+        fprintf(stderr, "Server: Error Faild to send an initial message to client\n");
+        exit(2);
     }
     return reply;
 }
@@ -171,14 +183,29 @@ void to_decrypt()
     /* Do not need to check the last null character */
     for(int i = 0; i < text_size; ++i){
         int text_index = strchr(key_characters,text_buffer[i]) - key_characters, key_index = strchr(key_characters,key_buffer[i]) - key_characters;
-        decrypted_buffer[i] = key_characters[( strlen(key_characters) + text_index - key_index) % strlen(key_characters)];
+        decrypted_buffer[i] = key_characters[(strlen(key_characters) + text_index - key_index) % strlen(key_characters)];
     }
+    /*
     fprintf(stdout, "decripted: %s\n", decrypted_buffer);
     fflush(stdout);
+    */
 }
 void send_result(int connectionSocket)
 {
+    int dec_size = strlen(decrypted_buffer);
+    if(send(connectionSocket, &dec_size, sizeof(dec_size), 0) < 0){
+        fprintf(stderr, "Server: Error Faild to send an initial message to Client\n");
+        exit(2);
+    }
+    /*
+    fprintf(stdout, "strlen: %d\n", strlen(key_buffer));
+    fflush(stdout);
+    */
 
+    if(send(connectionSocket, decrypted_buffer, dec_size, 0) < 0){
+        fprintf(stderr, "Server: Error Faild to send an initial message to Client\n");
+        exit(2);
+    }
 }
 /*
     This will receive the string data from server
@@ -190,11 +217,13 @@ void receive_text_msg(int connectionSocket)
     int text_length, total_received = 0, received, index = 0;
 
     if(recv(connectionSocket, &text_length, sizeof(text_length), 0) < 0){
-        fprintf(stderr, "ERROR reading from socket");
-        exit(1);
+        fprintf(stderr, "Server: ERROR reading from client\n");
+        exit(2);
     }
+    /*
     fprintf(stdout, "Server: text length: %d\n", text_length);
     fflush(stdout);
+    */
 
     text_buffer = (char *)calloc(text_length+1, sizeof(char));
     memset(text_buffer, '\0', text_length+1);
@@ -210,19 +239,20 @@ void receive_text_msg(int connectionSocket)
         }
         received = recv(connectionSocket, text_buffer+index, data_size, 0);
         if(received<0){
-           fprintf(stderr, "ERROR reading from socket");
-           exit(1);
+           fprintf(stderr, "Server: ERROR reading from client\n");
+           exit(2);
         }
         total_received+=received;
         if(total_received >= text_length){
             is_done = 1;
         }
         index+=received;
+        /*
         fprintf(stdout, "Server: received %d\n", received);
         fflush(stdout);
+        */
     }
-    fprintf(stdout,"Server: text\n %s\n", text_buffer);
-    fflush(stdout);
+
 }
 void receive_key_msg(int connectionSocket)
 {
@@ -230,12 +260,13 @@ void receive_key_msg(int connectionSocket)
     int key_length, total_received = 0, received, index = 0;
 
     if(recv(connectionSocket, &key_length, sizeof(key_length), 0) < 0){
-        fprintf(stderr, "ERROR reading from socket");
-        exit(1);
+        fprintf(stderr, "ERROR reading from socket\n");
+        exit(2);
     }
+    /*
     fprintf(stdout, "Server: key length: %d\n", key_length);
     fflush(stdout);
-
+    */
 
 
     key_buffer = (char *)calloc(key_length+1, sizeof(char));
@@ -252,17 +283,18 @@ void receive_key_msg(int connectionSocket)
         }
         received = recv(connectionSocket, key_buffer+index, data_size, 0);
         if(received<0){
-           fprintf(stderr, "ERROR reading from socket");
-           exit(1);
+           fprintf(stderr, "ERROR reading from socket\n");
+           exit(2);
         }
         total_received+=received;
         if(total_received >= key_length){
             is_done = 1;
         }
         index+=received;
+        /*
         fprintf(stdout, "Server: received %d\n", received);
         fflush(stdout);
+        */
     }
-    fprintf(stdout,"Server: key\n %s\n", key_buffer);
-    fflush(stdout);
+
 }

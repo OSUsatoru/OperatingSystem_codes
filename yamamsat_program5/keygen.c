@@ -40,7 +40,7 @@ int main(int argc, char *argv[])
 
     /* allocate memory for key stirng, length +1 for NULL */
     char *key_string = calloc(key_length+1, sizeof(char));
-
+    memset(key_string, '\0', key_length+1);
     Generate_key(key_length, key_string);
 
     /* output to stdout */
@@ -58,7 +58,5 @@ void Generate_key(int length, char *str)
     for(int i = 0; i < length; ++i){
         str[i] = key_characters[ rand() % strlen(key_characters)];
     }
-    /* add null character */
-    str[length] = '\0';
 
 }

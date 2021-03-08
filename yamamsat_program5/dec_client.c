@@ -11,7 +11,7 @@
 
 **********************************************************************************************/
 /*
-    1. send "enc_client". this will receive the message from server
+    1. send "dec_client". this will receive the message from server
     2. send the size of file to server.
     3. send the data to server.
     4. receive the message from server
@@ -27,7 +27,7 @@
 
 char key_characters[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ ";
 
-char *text_buffer, *key_buffer, *encrypted_buffer;
+char *text_buffer, *key_buffer, *decrypted_buffer;
 
 /* Eventually this size does not include NULL character */
 int text_size, key_size;
@@ -57,16 +57,16 @@ int main(int argc, char *argv[]) {
     }
     /* Check if files are valid */
     Is_Valid_Files(argv[1], argv[2]);
-
+    /*
     fprintf(stdout,"CLIENT: checked file\n");
     fflush(stdout);
-
+    */
     /* Create a socket: IPv4, TCP */
     socketFD = socket(AF_INET, SOCK_STREAM, 0);
     /* If faild to createe the socket */
     if (socketFD < 0){
         fprintf(stderr,"CLIENT: ERROR opening socket\n");
-        exit(1);
+        exit(2);
     }
 
     /* Set up the server address struct */
@@ -74,23 +74,22 @@ int main(int argc, char *argv[]) {
 
     /* Try to connect  */
     if (connect(socketFD, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) < 0){
-        fprintf(stderr,"CLIENT: ERROR connecting");
-        exit(1);
+        fprintf(stderr,"CLIENT: ERROR connecting\n");
+        exit(2);
     }
     /* First contact to see if it connects correct server */
 
     if(initial_contact(socketFD) == 0){
-        fprintf(stderr,"CLIENT: ERROR Connection is rejected by server.");
+        fprintf(stderr,"CLIENT: ERROR Connection is rejected by server.\n");
         exit(2);
     }
+    /*
     fprintf(stdout, "%s\n", text_buffer);
     fprintf(stdout, "%s\n", key_buffer );
-
     fprintf(stdout, "%d\n", text_size);
     fprintf(stdout, "%d\n", key_size );
-
     fflush(stdout);
-
+    */
     /* send text_buffer */
     send_text_msg(socketFD);
     /* send key_buffer */
@@ -98,6 +97,7 @@ int main(int argc, char *argv[]) {
 
     /* receive message form server */
     receive_msg(socketFD);
+    printf("%s\n",decrypted_buffer);
 
     // Close the socket
     close(socketFD);
@@ -118,7 +118,7 @@ void Is_Valid_Files(const char *text, const char *key)
     stat(key, &key_Stat);
     /*  these store the size of file by bytes
         On windows, the size of '\n' is 2 bytes
-        there might be difference between this size and strlen(text),
+        there might be differdece between this size and strlen(text),
         but this size is always size >= strlen(text)
     *********************************************************************/
     text_size = text_Stat.st_size;
@@ -141,8 +141,10 @@ void Is_Valid_Files(const char *text, const char *key)
     }
 
     /* Allocate memory by using size of file*/
-    text_buffer = malloc(text_size);
-    key_buffer = malloc(key_size);
+    text_buffer = (char *)calloc(text_size+1, sizeof(char));
+    key_buffer = (char *)calloc(key_size+1, sizeof(char));
+    memset(text_buffer, '\0', text_size);
+    memset(key_buffer, '\0', key_size);
     /* Store string including '\n' */
     fgets(text_buffer, text_size, text_file);
     fgets(key_buffer, key_size, key_file);
@@ -152,6 +154,7 @@ void Is_Valid_Files(const char *text, const char *key)
     /* Updata size of file */
     text_size = strlen(text_buffer);
     key_size = strlen(key_buffer);
+    /*fprintf(stderr, "textlen:%d\nkeylen:%d", text_size, key_size);*/
 
     if(text_size > key_size){
         fprintf(stderr,"Error: key '%s' is too short\n", key);
@@ -167,14 +170,14 @@ void Is_Valid_Files(const char *text, const char *key)
     /*
         This is not efficient though
     ************************************************/
-    for(int i = 0; i < text_size-1; ++i){
+    for(int i = 0; i < text_size; ++i){
         /* If text has a bad character */
         if(strchr(key_characters, text_buffer[i]) == NULL){
             fprintf(stderr,"Error: '%s' has a bad character\n", text);
             exit(1);
         }
     }
-    for(int i = 0; i < key_size-1; ++i){
+    for(int i = 0; i < key_size; ++i){
         /* If key has a bad character */
         if(strchr(key_characters, key_buffer[i]) == NULL){
             fprintf(stderr,"Error: '%s' has a bad character\n", key);
@@ -200,7 +203,7 @@ void setupAddressStruct(struct sockaddr_in* address, int portNumber){
     struct hostent* hostInfo = gethostbyname(IPaddress);
     if (hostInfo == NULL) {
         fprintf(stderr, "CLIENT: ERROR, no such host\n");
-        exit(0);
+        exit(2);
     }
     // Copy the first IP address from the DNS entry to sin_addr.s_addr
     memcpy((char*) &address->sin_addr.s_addr, hostInfo->h_addr_list[0], hostInfo->h_length);
@@ -217,7 +220,7 @@ int initial_contact(int socketFD)
 {
     /* buffer will reseive the character and '\0' from server */
     int respons;
-    char name[] = "enc_client\0";
+    char name[] = "dec_client\0";
     if(send(socketFD, name, strlen(name), 0) < 0){
         fprintf(stderr, "Client: Error Faild to send an initial message to server\n");
         exit(2);
@@ -227,8 +230,10 @@ int initial_contact(int socketFD)
         fprintf(stderr, "Client: Errir Faild to receive an initial message from server\n");
         exit(2);
     }
+    /*
     fprintf(stdout, "test on client: %d\n", respons);
     fflush(stdout);
+    */
 
     return respons;
 }
@@ -278,9 +283,43 @@ void send_key_msg(int socketFD)
 ********************************************************/
 void receive_msg(int socketFD)
 {
+    int dec_length, total_received = 0, received, index = 0;
+
+    if(recv(socketFD, &dec_length, sizeof(dec_length), 0) < 0){
+        fprintf(stderr, "Client: ERROR reading from server\n");
+        exit(2);
+    }
+    /*
+    fprintf(stdout, "Server: text length: %d\n", text_length);
+    fflush(stdout);
+    */
+
+    decrypted_buffer = (char *)calloc(dec_length+1, sizeof(char));
+    memset(decrypted_buffer, '\0', dec_length+1);
+
+    int is_done = 0;
+    int data_size;
+
+    while(!is_done){
+        if(dec_length-total_received >= 1000){
+            data_size = 1000;
+        }else{
+            data_size = dec_length-total_received;
+        }
+        received = recv(socketFD, decrypted_buffer+index, data_size, 0);
+        if(received<0){
+           fprintf(stderr, "Client: ERROR reading from server\n");
+           exit(2);
+        }
+        total_received+=received;
+        if(total_received >= dec_length){
+            is_done = 1;
+        }
+        index+=received;
+        /*
+        fprintf(stdout, "Server: received %d\n", received);
+        fflush(stdout);
+        */
+    }
 
 }
-
-/*  make a one string data
-    send that
-*/

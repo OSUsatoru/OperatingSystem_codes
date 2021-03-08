@@ -141,8 +141,10 @@ void Is_Valid_Files(const char *text, const char *key)
     }
 
     /* Allocate memory by using size of file*/
-    text_buffer = malloc(text_size);
-    key_buffer = malloc(key_size);
+    text_buffer = (char *)calloc(text_size+1, sizeof(char));
+    key_buffer = (char *)calloc(key_size+1, sizeof(char));
+    memset(text_buffer, '\0', text_size);
+    memset(key_buffer, '\0', key_size);
     /* Store string including '\n' */
     fgets(text_buffer, text_size, text_file);
     fgets(key_buffer, key_size, key_file);
@@ -150,17 +152,17 @@ void Is_Valid_Files(const char *text, const char *key)
     fclose(text_file);
     fclose(key_file);
     /* Updata size of file */
-    text_size = strlen(text_buffer)-1;
-    key_size = strlen(key_buffer)-1;
-
+    text_size = strlen(text_buffer);
+    key_size = strlen(key_buffer);
+    /*fprintf(stderr, "textlen:%d\nkeylen:%d", text_size, key_size);*/
     if(text_size > key_size){
         fprintf(stderr,"Error: key '%s' is too short\n", key);
         exit(1);
     }
 
     //Replace '\n' to NULL character
-    text_buffer[text_size+1] = '\0';
-    key_buffer[key_size+1] = '\0';
+    text_buffer[text_size] = '\0';
+    key_buffer[key_size] = '\0';
     //printf("%s:%d\n", text_buffer, text_size);
     //printf("%s:%d\n", key_buffer, key_size);
 
@@ -320,7 +322,3 @@ void receive_msg(int socketFD)
     }
 
 }
-
-/*  make a one string data
-    send that
-*/

@@ -57,16 +57,16 @@ int main(int argc, char *argv[]) {
     }
     /* Check if files are valid */
     Is_Valid_Files(argv[1], argv[2]);
-    /*
+
     fprintf(stdout,"CLIENT: checked file\n");
     fflush(stdout);
-    */
+
     /* Create a socket: IPv4, TCP */
     socketFD = socket(AF_INET, SOCK_STREAM, 0);
     /* If faild to createe the socket */
     if (socketFD < 0){
         fprintf(stderr,"CLIENT: ERROR opening socket\n");
-        exit(2);
+        exit(1);
     }
 
     /* Set up the server address struct */
@@ -74,22 +74,23 @@ int main(int argc, char *argv[]) {
 
     /* Try to connect  */
     if (connect(socketFD, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) < 0){
-        fprintf(stderr,"CLIENT: ERROR connecting\n");
-        exit(2);
+        fprintf(stderr,"CLIENT: ERROR connecting");
+        exit(1);
     }
     /* First contact to see if it connects correct server */
 
     if(initial_contact(socketFD) == 0){
-        fprintf(stderr,"CLIENT: ERROR Connection is rejected by server.\n");
+        fprintf(stderr,"CLIENT: ERROR Connection is rejected by server.");
         exit(2);
     }
-    /*
     fprintf(stdout, "%s\n", text_buffer);
     fprintf(stdout, "%s\n", key_buffer );
+
     fprintf(stdout, "%d\n", text_size);
     fprintf(stdout, "%d\n", key_size );
+
     fflush(stdout);
-    */
+
     /* send text_buffer */
     send_text_msg(socketFD);
     /* send key_buffer */
@@ -97,7 +98,6 @@ int main(int argc, char *argv[]) {
 
     /* receive message form server */
     receive_msg(socketFD);
-    printf("%s\n",encrypted_buffer);
 
     // Close the socket
     close(socketFD);
@@ -150,8 +150,8 @@ void Is_Valid_Files(const char *text, const char *key)
     fclose(text_file);
     fclose(key_file);
     /* Updata size of file */
-    text_size = strlen(text_buffer)-1;
-    key_size = strlen(key_buffer)-1;
+    text_size = strlen(text_buffer);
+    key_size = strlen(key_buffer);
 
     if(text_size > key_size){
         fprintf(stderr,"Error: key '%s' is too short\n", key);
@@ -159,22 +159,22 @@ void Is_Valid_Files(const char *text, const char *key)
     }
 
     //Replace '\n' to NULL character
-    text_buffer[text_size+1] = '\0';
-    key_buffer[key_size+1] = '\0';
+    text_buffer[text_size] = '\0';
+    key_buffer[key_size] = '\0';
     //printf("%s:%d\n", text_buffer, text_size);
     //printf("%s:%d\n", key_buffer, key_size);
 
     /*
         This is not efficient though
     ************************************************/
-    for(int i = 0; i < text_size; ++i){
+    for(int i = 0; i < text_size-1; ++i){
         /* If text has a bad character */
         if(strchr(key_characters, text_buffer[i]) == NULL){
             fprintf(stderr,"Error: '%s' has a bad character\n", text);
             exit(1);
         }
     }
-    for(int i = 0; i < key_size; ++i){
+    for(int i = 0; i < key_size-1; ++i){
         /* If key has a bad character */
         if(strchr(key_characters, key_buffer[i]) == NULL){
             fprintf(stderr,"Error: '%s' has a bad character\n", key);
@@ -200,7 +200,7 @@ void setupAddressStruct(struct sockaddr_in* address, int portNumber){
     struct hostent* hostInfo = gethostbyname(IPaddress);
     if (hostInfo == NULL) {
         fprintf(stderr, "CLIENT: ERROR, no such host\n");
-        exit(2);
+        exit(0);
     }
     // Copy the first IP address from the DNS entry to sin_addr.s_addr
     memcpy((char*) &address->sin_addr.s_addr, hostInfo->h_addr_list[0], hostInfo->h_length);
@@ -227,10 +227,8 @@ int initial_contact(int socketFD)
         fprintf(stderr, "Client: Errir Faild to receive an initial message from server\n");
         exit(2);
     }
-    /*
     fprintf(stdout, "test on client: %d\n", respons);
     fflush(stdout);
-    */
 
     return respons;
 }
@@ -280,44 +278,6 @@ void send_key_msg(int socketFD)
 ********************************************************/
 void receive_msg(int socketFD)
 {
-    int enc_length, total_received = 0, received, index = 0;
-
-    if(recv(socketFD, &enc_length, sizeof(enc_length), 0) < 0){
-        fprintf(stderr, "Client: ERROR reading from server\n");
-        exit(2);
-    }
-    /*
-    fprintf(stdout, "Server: text length: %d\n", text_length);
-    fflush(stdout);
-    */
-
-    encrypted_buffer = (char *)calloc(enc_length+1, sizeof(char));
-    memset(encrypted_buffer, '\0', enc_length+1);
-
-    int is_done = 0;
-    int data_size;
-
-    while(!is_done){
-        if(enc_length-total_received >= 1000){
-            data_size = 1000;
-        }else{
-            data_size = enc_length-total_received;
-        }
-        received = recv(socketFD, encrypted_buffer+index, data_size, 0);
-        if(received<0){
-           fprintf(stderr, "Client: ERROR reading from server\n");
-           exit(2);
-        }
-        total_received+=received;
-        if(total_received >= enc_length){
-            is_done = 1;
-        }
-        index+=received;
-        /*
-        fprintf(stdout, "Server: received %d\n", received);
-        fflush(stdout);
-        */
-    }
 
 }
 

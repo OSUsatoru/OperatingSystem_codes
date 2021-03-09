@@ -8,14 +8,13 @@
     Here is the links where I checked while I was making Programming memo
 
     reference:
+    - get idea of client program
+    http://research.nii.ac.jp/~ichiro/syspro98/client.html
 
+    - get idea to make loop for recv
+    https://www.mathkuro.com/network/socket/c-tcp-socket-sample/
 **********************************************************************************************/
-/*
-    1. send "enc_client". this will receive the message from server
-    2. send the size of file to server.
-    3. send the data to server.
-    4. receive the message from server
-***********************************************************/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -27,6 +26,7 @@
 
 char key_characters[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ ";
 
+/* These grobal variables store text, key, and encrypted string */
 char *text_buffer, *key_buffer, *encrypted_buffer;
 
 /* Eventually this size does not include NULL character */
@@ -38,6 +38,7 @@ int initial_contact(int socketFD);
 void send_text_msg(int socketFD);
 void send_key_msg(int socketFD);
 void receive_msg(int socketFD);
+
 /*
     argv[1]: plain text
     argv[2]: key test
@@ -45,10 +46,9 @@ void receive_msg(int socketFD);
 **************************************************/
 int main(int argc, char *argv[]) {
 
+
     int socketFD, portNumber, charsWritten, charsRead;
     struct sockaddr_in serverAddress;
-
-
 
     /* if there is no enogut arguments */
     if (argc < 4) {
@@ -77,8 +77,8 @@ int main(int argc, char *argv[]) {
         fprintf(stderr,"CLIENT: ERROR connecting\n");
         exit(2);
     }
-    /* First contact to see if it connects correct server */
 
+    /* First contact to see if it connects correct server */
     if(initial_contact(socketFD) == 0){
         fprintf(stderr,"CLIENT: ERROR Connection is rejected by server.\n");
         exit(2);
@@ -90,16 +90,18 @@ int main(int argc, char *argv[]) {
     fprintf(stdout, "%d\n", key_size );
     fflush(stdout);
     */
-    /* send text_buffer */
+
+    /* send text_buffer to server */
     send_text_msg(socketFD);
-    /* send key_buffer */
+    /* send key_buffer to server */
     send_key_msg(socketFD);
 
-    /* receive message form server */
+    /* receive result form server */
     receive_msg(socketFD);
+
     printf("%s\n",encrypted_buffer);
 
-    // Close the socket
+    /* Close the socket */
     close(socketFD);
     return 0;
 }
@@ -124,7 +126,7 @@ void Is_Valid_Files(const char *text, const char *key)
     text_size = text_Stat.st_size;
     key_size = key_Stat.st_size;
 
-    //printf("%d\n%d\n", *text_size, key_size);
+    /* printf("%d\n%d\n", *text_size, key_size); */
 
 
     /* open files */
@@ -140,7 +142,7 @@ void Is_Valid_Files(const char *text, const char *key)
         exit(1);
     }
 
-    /* Allocate memory by using size of file*/
+    /* Allocate memory by using size of file */
     text_buffer = (char *)calloc(text_size+1, sizeof(char));
     key_buffer = (char *)calloc(key_size+1, sizeof(char));
     memset(text_buffer, '\0', text_size);
@@ -160,15 +162,14 @@ void Is_Valid_Files(const char *text, const char *key)
         exit(1);
     }
 
-    //Replace '\n' to NULL character
+    /* Replace '\n' to NULL character */
     text_buffer[text_size] = '\0';
     key_buffer[key_size] = '\0';
-    //printf("%s:%d\n", text_buffer, text_size);
-    //printf("%s:%d\n", key_buffer, key_size);
-
     /*
-        This is not efficient though
-    ************************************************/
+    printf("%s:%d\n", text_buffer, text_size);
+    printf("%s:%d\n", key_buffer, key_size);
+    */
+
     for(int i = 0; i < text_size; ++i){
         /* If text has a bad character */
         if(strchr(key_characters, text_buffer[i]) == NULL){
@@ -187,7 +188,7 @@ void Is_Valid_Files(const char *text, const char *key)
 }
 
 /* Set up the address struct
-********************************************************************************/
+***********************************/
 void setupAddressStruct(struct sockaddr_in* address, int portNumber){
     char IPaddress[] = "127.0.0.1";
     // Clear out the address struct
@@ -226,7 +227,7 @@ int initial_contact(int socketFD)
     }
 
     if(recv(socketFD, &respons, sizeof(respons), 0) < 0){
-        fprintf(stderr, "Client: Errir Faild to receive an initial message from server\n");
+        fprintf(stderr, "Client: Error Faild to receive an initial message from server\n");
         exit(2);
     }
     /*
@@ -243,6 +244,7 @@ int initial_contact(int socketFD)
 **********************************************************/
 void send_text_msg(int socketFD)
 {
+    /* send size of text */
     if(send(socketFD, &text_size, sizeof(text_size), 0) < 0){
         fprintf(stderr, "Client: Error Faild to send an initial message to server\n");
         exit(2);
@@ -252,15 +254,21 @@ void send_text_msg(int socketFD)
     fflush(stdout);
     */
 
+    /* send text */
     if(send(socketFD, text_buffer, text_size, 0) < 0){
         fprintf(stderr, "Client: Error Faild to send an initial message to server\n");
         exit(2);
     }
 
 }
+/*
+    This will send the string information to server.
+    first: send the size of data
+    second: send the string data
+**********************************************************/
 void send_key_msg(int socketFD)
 {
-
+    /* send size of key */
     if(send(socketFD, &key_size, sizeof(key_size), 0) < 0){
         fprintf(stderr, "Client: Error Faild to send an initial message to server\n");
         exit(2);
@@ -270,6 +278,7 @@ void send_key_msg(int socketFD)
     fflush(stdout);
     */
 
+    /* send key */
     if(send(socketFD, key_buffer, key_size, 0) < 0){
         fprintf(stderr, "Client: Error Faild to send an initial message to server\n");
         exit(2);
@@ -284,6 +293,7 @@ void receive_msg(int socketFD)
 {
     int enc_length, total_received = 0, received, index = 0;
 
+    /* receive size of encripted data */
     if(recv(socketFD, &enc_length, sizeof(enc_length), 0) < 0){
         fprintf(stderr, "Client: ERROR reading from server\n");
         exit(2);
@@ -293,15 +303,20 @@ void receive_msg(int socketFD)
     fflush(stdout);
     */
 
+    /* allocate memory */
     encrypted_buffer = (char *)calloc(enc_length+1, sizeof(char));
     memset(encrypted_buffer, '\0', enc_length+1);
 
     int is_done = 0;
     int data_size;
 
+    /*
+        loop until done
+        This receive every 5000 characters (you can change the size)
+    ******************************************************/
     while(!is_done){
-        if(enc_length-total_received >= 1000){
-            data_size = 1000;
+        if(enc_length-total_received >= 5000){
+            data_size = 5000;
         }else{
             data_size = enc_length-total_received;
         }

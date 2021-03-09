@@ -1,4 +1,3 @@
-gcc --std=gnu99 -o keygen keygen.c
+Run this program
 
-gcc --std=gnu99 -o enc_client enc_client.c
-gcc --std=gnu99 -o enc_server enc_server.c
+./p5testscript RANDOM_PORT1 RANDOM_PORT2 > mytestresults 2>&1

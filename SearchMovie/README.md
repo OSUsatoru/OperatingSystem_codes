@@ -5,7 +5,7 @@
 * Creates a directory
 * Creates new files in the newly created directory and writes processed data to these files
 
-## How to compile your code using gcc to create an executable file
+## Example of compile a code program to create an executable file
 ```sh
 gcc --std=gnu99 -o movies_by_year main.c
 ```

@@ -6,7 +6,7 @@
 * Gives user choices to ask questions about the movies in the data
 * Prints out the data about the movies per user choice
 
-## How to compile your code using gcc to create an executable file
+## Example of compile a code program to create an executable file
 ```sh
 gcc --std=gnu99 -o movies main.c
 ```

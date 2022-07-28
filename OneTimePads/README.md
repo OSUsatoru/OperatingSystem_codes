@@ -3,7 +3,7 @@
 Creating five small programs that encrypt and decrypt information using a one-time pad-like system. These programs will combine the multi-processing code you have been learning with socket-based inter-process communication. Your programs will also be accessible from the command line using standard Unix features like input/output redirection, and job control. Finally, you will write a short compilation script. \
 Program will encrypt and decrypt plaintext into ciphertext, using a key, in exactly the same fashion as above, except it will be using modulo 27 operations: your 27 characters are the 26 capital letters, and the space character. All 27 characters will be encrypted and decrypted as above.
 
-## Example of run program commands
+## Example of compile a code program to create an executable file
 ```sh
 ./p5testscript RANDOM_PORT1 RANDOM_PORT2 > mytestresults 2>&1
 ```

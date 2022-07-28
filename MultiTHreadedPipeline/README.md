@@ -9,7 +9,7 @@ Write a program that creates 4 threads to process input from standard input as f
 
 Furthermore, in your program these 4 threads must communicate with each other using the Producer-Consumer approach.
 
-## How to compile your code using gcc to create an executable file
+## Example of compile a code program to create an executable file
 ```sh
 gcc --std=gnu99 -pthread -o line_processor main.c
 ```

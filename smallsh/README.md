@@ -11,7 +11,7 @@ Write smallsh your own shell in C. smallsh will implement a subset of features o
 7. Support running commands in foreground and background processes
 8. Implement custom handlers for 2 signals, SIGINT and SIGTSTP
 
-## How to compile your code using gcc to create an executable file
+## Example of compile a code program to create an executable file
 ```sh
 gcc --std=gnu99 -o smallsh main.c
 ```
